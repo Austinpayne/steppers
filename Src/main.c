@@ -39,6 +39,15 @@
 #define PRESCALE 50
 #define AUTO_RELOAD 20
 #define DUTY_CYCLE 2
+#define STEPS_PER_REV 200 // full step
+#define MICROSTEP 16
+#define GEAR_C 30 // gear circumference, in mm
+#define STEPS_PER_MM (STEPS_PER_REV*MICROSTEP)/GEAR_C
+#define STEPS_PER_MM_C 107 // for 1/16 microstep size and gear circumference of 30mm
+#define STEP_ANGLE 0.0314 // radians, approx 1.8*
+#define GEAR_RADIUS 4.75 // mm
+#define LINEAR_DISTANCE 0.15 //mm, STEP_ANGLE*GEAR_RADIUS
+#define OFF -1
 
 /* USER CODE BEGIN Includes */
 
@@ -61,8 +70,8 @@ void gpio_write_reg16(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
 void gpio_toggle_reg16(__IO uint32_t * reg, uint32_t pin);
 void init_steps(void);
 void step(void);
-void step_new(void);
 void stepn(int axis, int n);
+void step_mm(int axis, int mm);
 
 int stepx;
 int stepy;
@@ -91,7 +100,8 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		stepn(X, 10000);
+		step_mm(X, 30); // step 30mm, about one rotation using 1/16 microstep
+		step_mm(Y, 30);
     }
     
 }
@@ -106,24 +116,27 @@ int main(void)
 	HAL_Init();
 	SystemClock_Config();
 	
+	button_init();
+	
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
+	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
 	
-	TIM3->DIER |= TIM_DIER_UIE;
-	//TIM3->DIER |= TIM_DIER_CC3IE; // capture 4 interrupt enable
-	//TIM3->DIER |= TIM_DIER_CC4IE; // capture 4 interrupt enable
+	TIM2->PSC   = PRESCALE;
+	TIM2->ARR   = AUTO_RELOAD;   
+	TIM2->DIER |= TIM_DIER_UIE; // enable timer interrupt
 	
 	TIM3->PSC = PRESCALE;	// frequency = (8MHz/PSC/ARR) *approximatly*
 	TIM3->ARR = AUTO_RELOAD;
 	// duty cycle: CCR is % of ARR register (ex. ARR = 10, CCR = 1 => 10% duty cycle)
-	//TIM3->CCR3 = DUTY_CYCLE; // PC8
-	//TIM3->CCR4 = DUTY_CYCLE; // PC9
+	TIM3->CCR3 = 0; // PC8
+	TIM3->CCR4 = 0; // PC9
 	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 1
 	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC4M_Pos); // ch 4 capture/compare PWM mode 1
 	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 2
 	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos); // ch 3 capture/compare PWM mode 2
 	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
-	//TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
+	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
 		
 	gpio_output_init(GPIOC, 6);
 	gpio_output_init(GPIOC, 7);
@@ -141,11 +154,16 @@ int main(void)
 	gpio_write_reg32(&(GPIOC->OSPEEDR), 9, 0); // speed (low x0)
 	gpio_write_reg32(&(GPIOC->PUPDR), 9, 0); // resistor (none 00)
 	
-	NVIC_SetPriority(TIM3_IRQn, 0);
-	NVIC_EnableIRQ(TIM3_IRQn);
+	NVIC_SetPriority(TIM2_IRQn, 0);
+	NVIC_EnableIRQ(TIM2_IRQn);
 	
 	init_steps();
+	
+	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
+	TIM3->CR1 |= TIM_CR1_CEN;
+	
 	stepn(X, 10000);
+	stepn(Y, 1000);
 	
   while (1)
   {
@@ -156,65 +174,61 @@ int main(void)
 
 
 
-void TIM3_IRQHandler(void) {
-	step_new();
-	//step();
+void TIM2_IRQHandler(void) {
+	step();
 }
 
 void init_steps(void) {
-	stepx = -1;
-	stepy = 0;
-}
-
-void step_new(void) {
-	if (stepx > 0) {
-		stepx--;
-	} else if (stepx == 0) {
-		stepx = -1;
-		TIM3->CCR3 = 0;
-		TIM3->CR1 &= ~(TIM_CR1_CEN);
-	}
-	TIM3->SR &= ~(TIM_SR_UIF);
+	stepx = OFF;
+	stepy = OFF;
 }
 
 void step(void) {
-	if (stepx != 0) {
+	if (stepx > 0) {
 		stepx--;
-		TIM3->SR &= ~(TIM_SR_CC3IF);
-	} else {
-		TIM3->DIER &= ~TIM_DIER_CC3IE;
+	} else if (stepx == 0) {
+		stepx = OFF;
 		TIM3->CCR3 = 0;
-		//stepx = -1;
-		//TIM3->SR &= ~(TIM_SR_CC3IF);
-		//TIM3->CCER  &= ~(TIM_CCER_CC3E);
 	} 
 	
-	if (stepy != 0) {
+	if (stepy > 0) {
 		stepy--;
-		TIM3->SR &= ~(TIM_SR_CC4IF);
-	} else {
-		TIM3->DIER &= ~TIM_DIER_CC3IE;
+	} else if (stepy == 0){
+		stepy = OFF;
 		TIM3->CCR4 = 0;
-		//stepy = -1;
-		//TIM3->SR &= ~(TIM_SR_CC4IF);
-		//TIM3->CCER  &= ~(TIM_CCER_CC4E);
 	}
+	TIM2->SR &= ~(TIM_SR_UIF);
 }
 
 /*
 	Rotate n steps
 */
 void stepn(int axis, int n) {
-	if (axis == X) {
-		stepx = n;
+	// don't step if currently stepping
+	if (axis == X && stepx == OFF) {
+		stepx = n-1;
 		TIM3->CCR3 = DUTY_CYCLE;
-		TIM3->CR1 |= TIM_CR1_CEN;
-		//TIM3->CCER  |= TIM_CCER_CC3E;
 	}
-	else if (axis == Y) {
-		stepy = n;
-		//TIM3->CCER  |= TIM_CCER_CC4E;
+	else if (axis == Y && stepy == OFF) {
+		stepy = n-1;
+		TIM3->CCR4 = DUTY_CYCLE;
 	}	
+}
+
+void step_mm(int axis, int mm) {
+	static int x = 0;
+	int adjust = 0;
+	int steps = 0;
+	
+	// handle slight step error
+	if (x == 3) {
+		adjust = 1;
+		x = 0;
+	}
+	
+	steps = (mm*STEPS_PER_MM_C)-adjust;
+	stepn(axis, steps);
+	x++;
 }
 
 /**
