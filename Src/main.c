@@ -48,6 +48,24 @@
 #define GEAR_RADIUS 4.75 // mm
 #define LINEAR_DISTANCE 0.15 //mm, STEP_ANGLE*GEAR_RADIUS
 #define OFF -1
+#define CW   0 // direction
+#define CCW  1
+
+// Pins (GPIOC)
+#define X_DIR   0
+#define X_RESET 2
+#define X_CAL   4 // input
+#define X_SLEEP 6
+#define X_STEP  8
+
+#define Y_DIR   1
+#define Y_RESET 3
+#define Y_CAL   5 // input
+#define Y_SLEEP 7
+#define Y_STEP  9
+
+
+
 
 /* USER CODE BEGIN Includes */
 
@@ -68,7 +86,7 @@ void gpio_input_init(GPIO_TypeDef * port, uint32_t pin);
 void gpio_write_reg32(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
 void gpio_write_reg16(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
 void gpio_toggle_reg16(__IO uint32_t * reg, uint32_t pin);
-void init_steps(void);
+void step_init(void);
 void step(void);
 void stepn(int axis, int n);
 void step_mm(int axis, int mm);
@@ -100,24 +118,13 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		step_mm(X, 30); // step 30mm, about one rotation using 1/16 microstep
-		step_mm(Y, 30);
+		step_mm(X, 30, CW); // step 30mm, about one rotation using 1/16 microstep
+		step_mm(Y, 30, CCW);
     }
     
 }
 
-/* USER CODE END 0 */
-
-int main(void)
-{
-	
-	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
-	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
-	HAL_Init();
-	SystemClock_Config();
-	
-	button_init();
-	
+void timer_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
@@ -137,65 +144,117 @@ int main(void)
 	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos); // ch 3 capture/compare PWM mode 2
 	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
 	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
-		
-	gpio_output_init(GPIOC, 6);
-	gpio_output_init(GPIOC, 7);
-	
-	// wire PWM to LED to verify output (use PC8 or PC9 to capture PWM output)
-	gpio_write_reg32(&(GPIOC->MODER), 8, 2); // mode (alternate 01)
-	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH0);
-	gpio_write_reg16(&(GPIOC->OTYPER), 8, 0); // type (push-pull 0)
-	gpio_write_reg32(&(GPIOC->OSPEEDR), 8, 0); // speed (low x0)
-	gpio_write_reg32(&(GPIOC->PUPDR), 8, 0); // resistor (none 00)
-	
-	gpio_write_reg32(&(GPIOC->MODER), 9, 2); // mode (alternate 01)
-	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
-	gpio_write_reg16(&(GPIOC->OTYPER), 9, 0); // type (push-pull 0)
-	gpio_write_reg32(&(GPIOC->OSPEEDR), 9, 0); // speed (low x0)
-	gpio_write_reg32(&(GPIOC->PUPDR), 9, 0); // resistor (none 00)
 	
 	NVIC_SetPriority(TIM2_IRQn, 0);
 	NVIC_EnableIRQ(TIM2_IRQn);
 	
-	init_steps();
-	
 	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
 	TIM3->CR1 |= TIM_CR1_CEN;
+}
+
+void output_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	
-	stepn(X, 10000);
-	stepn(Y, 1000);
+	gpio_output_init(GPIOC, X_DIR); // PC0 (x-axis dir)
+	gpio_output_init(GPIOC, Y_DIR); // PC1 (y-axis dir)
+	
+	gpio_output_init(GPIOC, X_SLEEP); // PC6 (x-axis sleep)
+	gpio_output_init(GPIOC, Y_SLEEP); // PC7 (y-axis sleep)
+	
+	// wire PWM to LED to verify output (use PC8 or PC9 to capture PWM output)
+	gpio_alternate_init(GPIOC, X_STEP); // PC8 (x-axis step)
+	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH0);
+	gpio_alternate_init(GPIOC, Y_STEP); // PC9 (y-axis step)
+	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
+}
+
+void cal_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
+	
+	gpio_output_init(GPIOC, X_RESET); // PC2 (x-axis reset)
+	gpio_output_init(GPIOC, Y_RESET); // PC3 (y-axis reset)
+	
+	gpio_input_init(GPIOC, X_CAL);
+	gpio_input_init(GPIOC, Y_CAL);
+	
+	// enable cal switch interrupts
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
+	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
+	EXTI->RTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
+	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
+	NVIC_SetPriority(EXTI4_15_IRQn, 1);
+	
+	// TODO: move axis until they hit cal switches then clear counters
+	
+	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
+	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
+	
+}
+
+/* USER CODE END 0 */
+
+int main(void)
+{
+	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
+	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
+	HAL_Init();
+	SystemClock_Config();
+	
+	button_init();
+	timer_init();
+	output_init();
+	cal_init();
+	step_init();
 	
   while (1)
   {
 	  __WFI();
   }
-
 }
 
-
+void EXTI4_15_IRQHandler(void) {
+	if (GPIOC->IDR & (1 << X_CAL)) {
+		step_stop(X);
+		EXTI->PR |= EXTI_PR_PIF4;
+	} else if (GPIOC->IDR & (1 << Y_CAL)) {
+		step_stop(y);
+		EXTI->PR |= EXTI_PR_PIF5;
+	}
+}
 
 void TIM2_IRQHandler(void) {
 	step();
 }
 
-void init_steps(void) {
-	stepx = OFF;
-	stepy = OFF;
+void step_init(void) {
+	step_stop(X);
+	step_stop(Y);
+}
+
+void step_stop(int axis) {
+	if (axis == X) {
+		stepx = OFF;
+		TIM3->CCR3 = 0;
+		gpio_write_reg16(&(GPIOC->ODR), X_SLEEP, 0);
+	} else if (axis == Y) {
+		stepy = OFF;
+		TIM3->CCR4 = 0;
+		gpio_write_reg16(&(GPIOC->ODR), Y_SLEEP, 0);
+	}
 }
 
 void step(void) {
 	if (stepx > 0) {
 		stepx--;
 	} else if (stepx == 0) {
-		stepx = OFF;
-		TIM3->CCR3 = 0;
+		step_stop(X);
 	} 
 	
 	if (stepy > 0) {
 		stepy--;
 	} else if (stepy == 0){
-		stepy = OFF;
-		TIM3->CCR4 = 0;
+		step_stop(Y);
 	}
 	TIM2->SR &= ~(TIM_SR_UIF);
 }
@@ -203,19 +262,23 @@ void step(void) {
 /*
 	Rotate n steps
 */
-void stepn(int axis, int n) {
+void stepn(int axis, int n, int dir) {
 	// don't step if currently stepping
 	if (axis == X && stepx == OFF) {
 		stepx = n-1;
 		TIM3->CCR3 = DUTY_CYCLE;
+		gpio_write_reg16(&(GPIOC->ODR), X_SLEEP, 1); // wake up
+		gpio_write_reg16(&(GPIOC->ODR), X_DIR, dir);
 	}
 	else if (axis == Y && stepy == OFF) {
 		stepy = n-1;
 		TIM3->CCR4 = DUTY_CYCLE;
+		gpio_write_reg16(&(GPIOC->ODR), Y_SLEEP, 1);
+		gpio_write_reg16(&(GPIOC->ODR), Y_DIR, dir);
 	}	
 }
 
-void step_mm(int axis, int mm) {
+void step_mm(int axis, int mm, int dir) {
 	static int x = 0;
 	int adjust = 0;
 	int steps = 0;
@@ -227,7 +290,7 @@ void step_mm(int axis, int mm) {
 	}
 	
 	steps = (mm*STEPS_PER_MM_C)-adjust;
-	stepn(axis, steps);
+	stepn(axis, steps, dir);
 	x++;
 }
 
@@ -238,6 +301,13 @@ void step_mm(int axis, int mm) {
  */
 void gpio_output_init(GPIO_TypeDef * port, uint32_t pin) {
 	gpio_write_reg32(&(port->MODER), pin, 1); // mode (output 01)
+	gpio_write_reg16(&(port->OTYPER), pin, 0); // type (push-pull 0)
+	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
+	gpio_write_reg32(&(port->PUPDR), pin, 0); // resistor (none 00)
+}
+
+void gpio_alternate_init(GPIO_TypeDef * port, uint32_t pin) {
+	gpio_write_reg32(&(port->MODER), pin, 2); // mode (alternate 10)
 	gpio_write_reg16(&(port->OTYPER), pin, 0); // type (push-pull 0)
 	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
 	gpio_write_reg32(&(port->PUPDR), pin, 0); // resistor (none 00)
