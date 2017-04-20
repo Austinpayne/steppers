@@ -33,39 +33,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
-
-#define X 0
-#define Y 1
-#define PRESCALE 50
-#define AUTO_RELOAD 20
-#define DUTY_CYCLE 2
-#define STEPS_PER_REV 200 // full step
-#define MICROSTEP 16
-#define GEAR_C 30 // gear circumference, in mm
-#define STEPS_PER_MM (STEPS_PER_REV*MICROSTEP)/GEAR_C
-#define STEPS_PER_MM_C 107 // for 1/16 microstep size and gear circumference of 30mm
-#define STEP_ANGLE 0.0314 // radians, approx 1.8*
-#define GEAR_RADIUS 4.75 // mm
-#define LINEAR_DISTANCE 0.15 //mm, STEP_ANGLE*GEAR_RADIUS
-#define OFF -1
-#define CW   0 // direction
-#define CCW  1
-
-// Pins (GPIOC)
-#define X_DIR   0
-#define X_RESET 2
-#define X_CAL   4 // input
-#define X_SLEEP 6
-#define X_STEP  8
-
-#define Y_DIR   1
-#define Y_RESET 3
-#define Y_CAL   5 // input
-#define Y_SLEEP 7
-#define Y_STEP  9
-
-
-
+#include "gpio.h"
+#include "stepper.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -81,18 +50,6 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
-void gpio_output_init(GPIO_TypeDef * port, uint32_t pin);
-void gpio_input_init(GPIO_TypeDef * port, uint32_t pin);
-void gpio_write_reg32(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
-void gpio_write_reg16(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
-void gpio_toggle_reg16(__IO uint32_t * reg, uint32_t pin);
-void step_init(void);
-void step(void);
-void stepn(int axis, int n);
-void step_mm(int axis, int mm);
-
-int stepx;
-int stepy;
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -107,21 +64,6 @@ void  button_init(void) {
     GPIOA->MODER &= ~(GPIO_MODER_MODER0_0 | GPIO_MODER_MODER0_1);               // Set PA0 to input
     GPIOC->OSPEEDR &= ~(GPIO_OSPEEDR_OSPEEDR0_0 | GPIO_OSPEEDR_OSPEEDR0_1);     // Set to low speed
     GPIOC->PUPDR |= GPIO_PUPDR_PUPDR0_1;                                        // Set to pull-down
-}
-
-void HAL_SYSTICK_Callback(void) {
-    static uint32_t debouncer = 0;
-    
-    debouncer = (debouncer << 1);
-    if(GPIOA->IDR & (1 << 0)) {
-        debouncer |= 0x1;
-    }
-
-    if(debouncer == 0x7FFFFFFF) {
-		step_mm(X, 30, CW); // step 30mm, about one rotation using 1/16 microstep
-		step_mm(Y, 30, CCW);
-    }
-    
 }
 
 void timer_init(void) {
@@ -178,12 +120,14 @@ void cal_init(void) {
 	gpio_input_init(GPIOC, Y_CAL);
 	
 	// enable cal switch interrupts
+	/*
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
 	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
 	EXTI->RTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
 	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
 	NVIC_SetPriority(EXTI4_15_IRQn, 1);
+	*/
 	
 	// TODO: move axis until they hit cal switches then clear counters
 	
@@ -206,11 +150,30 @@ int main(void)
 	output_init();
 	cal_init();
 	step_init();
+	step_squares(X, 8, CCW);
+	HAL_Delay(1000);
+	step_squares(Y, 4, CW);
 	
   while (1)
   {
 	  __WFI();
+	  //step_squares(X, 2, CCW);	  
   }
+}
+
+void HAL_SYSTICK_Callback(void) {
+    static uint32_t debouncer = 0;
+    
+    debouncer = (debouncer << 1);
+    if(GPIOA->IDR & (1 << 0)) {
+        debouncer |= 0x1;
+    }
+
+    if(debouncer == 0x7FFFFFFF) {
+		step_squares(X, 2, CCW); // step 30mm, about one rotation using 1/16 microstep
+		step_squares(Y, 4, CCW);
+    }
+    
 }
 
 void EXTI4_15_IRQHandler(void) {
@@ -218,7 +181,7 @@ void EXTI4_15_IRQHandler(void) {
 		step_stop(X);
 		EXTI->PR |= EXTI_PR_PIF4;
 	} else if (GPIOC->IDR & (1 << Y_CAL)) {
-		step_stop(y);
+		step_stop(Y);
 		EXTI->PR |= EXTI_PR_PIF5;
 	}
 }
@@ -227,136 +190,6 @@ void TIM2_IRQHandler(void) {
 	step();
 }
 
-void step_init(void) {
-	step_stop(X);
-	step_stop(Y);
-}
-
-void step_stop(int axis) {
-	if (axis == X) {
-		stepx = OFF;
-		TIM3->CCR3 = 0;
-		gpio_write_reg16(&(GPIOC->ODR), X_SLEEP, 0);
-	} else if (axis == Y) {
-		stepy = OFF;
-		TIM3->CCR4 = 0;
-		gpio_write_reg16(&(GPIOC->ODR), Y_SLEEP, 0);
-	}
-}
-
-void step(void) {
-	if (stepx > 0) {
-		stepx--;
-	} else if (stepx == 0) {
-		step_stop(X);
-	} 
-	
-	if (stepy > 0) {
-		stepy--;
-	} else if (stepy == 0){
-		step_stop(Y);
-	}
-	TIM2->SR &= ~(TIM_SR_UIF);
-}
-
-/*
-	Rotate n steps
-*/
-void stepn(int axis, int n, int dir) {
-	// don't step if currently stepping
-	if (axis == X && stepx == OFF) {
-		stepx = n-1;
-		TIM3->CCR3 = DUTY_CYCLE;
-		gpio_write_reg16(&(GPIOC->ODR), X_SLEEP, 1); // wake up
-		gpio_write_reg16(&(GPIOC->ODR), X_DIR, dir);
-	}
-	else if (axis == Y && stepy == OFF) {
-		stepy = n-1;
-		TIM3->CCR4 = DUTY_CYCLE;
-		gpio_write_reg16(&(GPIOC->ODR), Y_SLEEP, 1);
-		gpio_write_reg16(&(GPIOC->ODR), Y_DIR, dir);
-	}	
-}
-
-void step_mm(int axis, int mm, int dir) {
-	static int x = 0;
-	int adjust = 0;
-	int steps = 0;
-	
-	// handle slight step error
-	if (x == 3) {
-		adjust = 1;
-		x = 0;
-	}
-	
-	steps = (mm*STEPS_PER_MM_C)-adjust;
-	stepn(axis, steps, dir);
-	x++;
-}
-
-/**
- *	Initializes the specified GPIO port and pin to be 
- *	an output with the following settings:
- *		- push-pull output, low speed, no pull-up/down resistor
- */
-void gpio_output_init(GPIO_TypeDef * port, uint32_t pin) {
-	gpio_write_reg32(&(port->MODER), pin, 1); // mode (output 01)
-	gpio_write_reg16(&(port->OTYPER), pin, 0); // type (push-pull 0)
-	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
-	gpio_write_reg32(&(port->PUPDR), pin, 0); // resistor (none 00)
-}
-
-void gpio_alternate_init(GPIO_TypeDef * port, uint32_t pin) {
-	gpio_write_reg32(&(port->MODER), pin, 2); // mode (alternate 10)
-	gpio_write_reg16(&(port->OTYPER), pin, 0); // type (push-pull 0)
-	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
-	gpio_write_reg32(&(port->PUPDR), pin, 0); // resistor (none 00)
-}
-
-/**
- *	Initializes the specified GPIO port and pin to be 
- *	an input with the following settings:
- *		- low speed, pull-up resistor
- */
-void gpio_input_init(GPIO_TypeDef * port, uint32_t pin) {
-	gpio_write_reg32(&(port->MODER), pin, 0); // mode (input 00)
-	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
-	gpio_write_reg32(&(port->PUPDR), pin, 1); // resistor (pull-up 01)
-}
-
-/**
- *	Writes/clears the given bits at the GPIO pin (32 bit register).
- *	Note that the 32 bit refers to the fact that the register uses
- *	all 32 bits, where each GPIO pin occupies 2 bits
- */
-void gpio_write_reg32(__IO uint32_t * reg, uint32_t pin, uint32_t bits) {
-	if (bits)
-		*reg |= (bits << (pin + pin));
-	else // clear
-		*reg &= ~(3 << (pin + pin));
-}
-
-
-/**
- *	Writes/clears the given bits at the GPIO pin (16 bit register).
- *	Note that the 16 bit refers to the fact that the register uses
- *	only the bottom 16 bits, where each GPIO pin occupies 1 bit.
- */
-void gpio_write_reg16(__IO uint32_t * reg, uint32_t pin, uint32_t bits) {
-	if (bits)
-		*reg |= (bits << pin);
-	else // clear
-		*reg &= ~(3 << pin);
-}
-
-/**
- *	Toggles the GPIO pin (16 bit register).
- *	Note that the 16 bit refers to the fact that the register uses
- *	only the bottom 16 bits, where each GPIO pin occupies 1 bit.
- */
-void gpio_toggle_reg16(__IO uint32_t * reg, uint32_t pin) {
-	*reg ^= (1 << pin);
-}
 
 /** System Clock Configuration
 */
