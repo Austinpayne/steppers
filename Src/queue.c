@@ -23,9 +23,10 @@ void init(step_queue_t *q) {
   *
   */
 int add(step_queue_t *q, int x, int y) {
-	 if(!full(q)) { // queue not full
-		 q->queue[q->end++].x_steps = x;
+	 if(!full(q) && x != 0 && y != 0) { // queue not full
+		 q->queue[q->end].x_steps = x;
 		 q->queue[q->end].y_steps = y;
+		 q->end++;
 		 
 		 if (q->end == SIZE) { // wrap
 			 q->end = 0;
@@ -40,9 +41,10 @@ int add(step_queue_t *q, int x, int y) {
 steps_t rm(step_queue_t *q) {
 	steps_t current = {0,0};
 	if(!empty(q)) { // queue not empty
-		current = q->queue[q->head++];
+		current = q->queue[q->head];
 		q->queue[q->head].x_steps = 0;
 		q->queue[q->head].y_steps = 0;
+		q->head++;
 		
 		if (q->head == SIZE) { // wrap
 			q->head = 0;
