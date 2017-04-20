@@ -33,8 +33,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
-#include "gpio.h"
-#include "stepper.h"
+#include "include/gpio.h"
+#include "include/stepper.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -150,15 +150,11 @@ int main(void)
 	output_init();
 	cal_init();
 	step_init();
-	step_squares(X, 8, CCW);
-	HAL_Delay(1000);
-	step_squares(Y, 4, CW);
 	
-  while (1)
-  {
-	  __WFI();
-	  //step_squares(X, 2, CCW);	  
-  }
+	while (1)
+	{
+		__WFI();  
+	}
 }
 
 void HAL_SYSTICK_Callback(void) {
@@ -170,8 +166,8 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		step_squares(X, 2, CCW); // step 30mm, about one rotation using 1/16 microstep
-		step_squares(Y, 4, CCW);
+		step_squares(X, 2); // step 30mm, about one rotation using 1/16 microstep
+		step_squares(Y, 4);
     }
     
 }

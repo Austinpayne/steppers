@@ -41,7 +41,7 @@
 
 // chess specific
 #define SQUARE_WIDTH 51 // mm
-void step_squares(int axis, int n, int dir);
+void step_squares(int axis, int n);
 
 // func definitions
 void step_init(void);
@@ -50,3 +50,5 @@ void step(void);
 void stepn(int axis, int n, int dir);
 void step_mm(int axis, int mm, int dir);
 void set_dir(int axis, int dir);
+int get_steps(int axis);
+int get_pos(int axis);

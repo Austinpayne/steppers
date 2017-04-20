@@ -1,5 +1,5 @@
-#include "stepper.h"
-#include "gpio.h"
+#include "include/stepper.h"
+#include "include/gpio.h"
 
 // globals
 int x_step; // current steps to take
@@ -77,7 +77,15 @@ void step_mm(int axis, int mm, int dir) {
 }
 
 // squares are 2" or ~51mm
-void step_squares(int axis, int n, int dir) {
+void step_squares(int axis, int n) {
+	int dir;
+	if (n > 0) {
+		dir = CW;
+	} else if (n < 0) {
+		dir = CCW;
+	} else {
+		return;
+	}
 	step_mm(axis, SQUARE_WIDTH*n, dir);
 }
 
@@ -86,5 +94,21 @@ void set_dir(int axis, int dir) {
 		gpio_write_reg16(&(GPIOC->ODR), X_DIR, dir);
 	} else if (axis == Y) {
 		gpio_write_reg16(&(GPIOC->ODR), Y_DIR, dir);
+	}
+}
+
+int get_steps(int axis) {
+	if (axis == X) {
+		return x_step;
+	} else {
+		return y_step;
+	}
+}
+
+int get_pos(int axis) {
+	if (axis == X) {
+		return x_pos;
+	} else {
+		return y_pos;
 	}
 }
