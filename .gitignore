@@ -72,3 +72,8 @@ RTE/
 *.sct
 *.lst
 *.s
+
+# unit testing
+unity/
+*.zip
+test_queue

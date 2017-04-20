@@ -109,6 +109,17 @@ void test_queue_empty_rm(void) {
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, steps.end, "unexpected end index");
 }
 
+void test_queue_invalid_add(void) {
+    INIT;
+    TEST_ASSERT_FALSE(add(&steps, 0, 0));
+}
+
+void test_queue_valid_adds(void) {
+    INIT;
+    TEST_ASSERT_TRUE_MESSAGE(add(&steps, 0, 1), "expected to be able to add (0,1)");
+    TEST_ASSERT_TRUE_MESSAGE(add(&steps, 1, 0), "expected to be able to add (1,0)");
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_queue_init);
@@ -121,5 +132,7 @@ int main(void) {
     RUN_TEST(test_queue_fill_empty);
     RUN_TEST(test_queue_lock_step_fill_empty);
     RUN_TEST(test_queue_empty_rm);
+    RUN_TEST(test_queue_invalid_add);
+    RUN_TEST(test_queue_valid_adds);
     return UNITY_END();
 }
