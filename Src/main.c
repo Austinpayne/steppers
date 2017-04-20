@@ -35,6 +35,7 @@
 #include "stm32f0xx_hal.h"
 #include "include/gpio.h"
 #include "include/stepper.h"
+#include "include/queue.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -50,6 +51,8 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
+
+step_queue_t steps;
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -151,6 +154,11 @@ int main(void)
 	cal_init();
 	step_init();
 	
+	init(&steps);
+	add(&steps, 3, -5);
+	add(&steps, 0, -4);
+	add(&steps, -6, 3);
+	
 	while (1)
 	{
 		__WFI();  
@@ -183,7 +191,14 @@ void EXTI4_15_IRQHandler(void) {
 }
 
 void TIM2_IRQHandler(void) {
-	step();
+	// if not stepping, get next step from queue
+	if (!empty(&steps) && get_steps(X) == OFF && get_steps(Y) == OFF) {
+		steps_t next = rm(&steps);
+		step_squares(X, next.x_steps);
+		step_squares(Y, next.y_steps);
+	} else {
+		step();
+	}
 }
 
 
