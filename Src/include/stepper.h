@@ -52,3 +52,4 @@ void step_mm(int axis, int mm, int dir);
 void set_dir(int axis, int dir);
 int get_steps(int axis);
 int get_pos(int axis);
+int abs(int val);

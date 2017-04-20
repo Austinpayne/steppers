@@ -155,9 +155,10 @@ int main(void)
 	step_init();
 	
 	init(&steps);
-	add(&steps, 3, -5);
-	add(&steps, 0, -4);
-	add(&steps, -6, 3);
+	add(&steps, 3, -3);
+	add(&steps, -3, 3);
+	add(&steps, 10, -4);
+	add(&steps, -10, 6 );
 	
 	while (1)
 	{

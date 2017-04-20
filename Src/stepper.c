@@ -86,7 +86,7 @@ void step_squares(int axis, int n) {
 	} else {
 		return;
 	}
-	step_mm(axis, SQUARE_WIDTH*n, dir);
+	step_mm(axis, SQUARE_WIDTH*abs(n), dir);
 }
 
 void set_dir(int axis, int dir) {
@@ -111,4 +111,14 @@ int get_pos(int axis) {
 	} else {
 		return y_pos;
 	}
+}
+
+/*
+ *	Absolute value function
+ */
+int abs(int val) {
+	if (val >= 0)
+		return val;
+	else
+		return val * -1;
 }
