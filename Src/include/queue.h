@@ -1,10 +1,12 @@
 #define SIZE 25
 
+// steps tuple
 typedef struct {
 	int x_steps;
 	int y_steps;
 } steps_t;
 
+// queue of steps
 typedef struct {
 	int head;
 	int end;

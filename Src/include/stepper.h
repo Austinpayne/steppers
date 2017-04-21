@@ -13,6 +13,7 @@
 #define STEPS_PER_MM_FULL  7      //  (STEPS_PER_REV_FULL*MICROSTEP)/GEAR_C
 #define STEPS_PER_MM_16    107    // 1/16 microstep
 #define ERR_PER_STEP_16    3      // 1/16 step
+// 1 square == ~51mm == ~5457 steps (@ 1/16 microstep)
 
 // axis
 #define X 0
@@ -42,6 +43,7 @@
 
 // chess specific
 #define SQUARE_WIDTH 51 // mm
+#define SQUARE_HALF_WIDTH 26 // mm
 void step_squares(int axis, int n);
 
 // func definitions
