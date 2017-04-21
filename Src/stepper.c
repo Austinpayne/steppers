@@ -117,8 +117,5 @@ int get_pos(int axis) {
  *	Absolute value function
  */
 int abs(int val) {
-	if (val >= 0)
-		return val;
-	else
-		return val * -1;
+	return (val < 0 ? -val : val);
 }
