@@ -12,6 +12,7 @@
 #define STEPS_PER_REV_16   3200   // 1/16 microstep
 #define STEPS_PER_MM_FULL  7      //  (STEPS_PER_REV_FULL*MICROSTEP)/GEAR_C
 #define STEPS_PER_MM_16    107    // 1/16 microstep
+#define ERR_PER_STEP_16    3      // 1/16 step
 
 // axis
 #define X 0

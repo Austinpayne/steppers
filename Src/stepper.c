@@ -61,19 +61,10 @@ void stepn(int axis, int n, int dir) {
 }
 
 void step_mm(int axis, int mm, int dir) {
-	static int err = 0;
-	int adjust = 0;
-	int steps = 0;
-	
 	// handle slight step error
-	if (err == 3) {
-		adjust = 1;
-		err = 0;
-	}
-	
-	steps = (mm*STEPS_PER_MM_16)-adjust;
+	int adjust = mm/ERR_PER_STEP_16;
+	int steps = (mm*STEPS_PER_MM_16)-adjust;
 	stepn(axis, steps, dir);
-	err++;
 }
 
 // squares are 2" or ~51mm
@@ -98,19 +89,11 @@ void set_dir(int axis, int dir) {
 }
 
 int get_steps(int axis) {
-	if (axis == X) {
-		return x_step;
-	} else {
-		return y_step;
-	}
+	return (axis == X ? x_step : y_step);
 }
 
 int get_pos(int axis) {
-	if (axis == X) {
-		return x_pos;
-	} else {
-		return y_pos;
-	}
+	return (axis == X ? x_pos : y_pos);
 }
 
 /*
