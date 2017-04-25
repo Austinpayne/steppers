@@ -41,17 +41,12 @@
 #define SLEEP(axis) (GPIOC->ODR &= (axis == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
 #define WAKE(axis)  (GPIOC->ODR |= (axis == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
 
-// chess specific
-#define SQUARE_WIDTH 51 // mm
-#define SQUARE_HALF_WIDTH 26 // mm
-void step_squares(int axis, int n);
-
 // func definitions
 void step_init(void);
 void step_stop(int axis);
 void step(void);
 void stepn(int axis, int n, int dir);
-void step_mm(int axis, int mm, int dir);
+void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
 int get_steps(int axis);
 int get_pos(int axis);

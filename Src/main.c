@@ -174,10 +174,8 @@ int main(void)
 	step_init();
 	
 	init(&steps);
-	add(&steps, 3, -3);
-	add(&steps, -3, 3);
-	add(&steps, 10, -4);
-	add(&steps, -10, 6 );
+	add(&steps, 2, -2);
+	add(&steps, -2, 2);
 	
 	while (1)
 	{
@@ -208,7 +206,7 @@ void HAL_SYSTICK_Callback(void) {
 
     if(debouncer == 0x7FFFFFFF) {
 		step_squares(X, 2); // step 30mm, about one rotation using 1/16 microstep
-		step_squares(Y, 4);
+		step_squares(Y, 2);
     }
     
 }

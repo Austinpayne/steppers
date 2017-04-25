@@ -60,24 +60,20 @@ void stepn(int axis, int n, int dir) {
 	}	
 }
 
-void step_mm(int axis, int mm, int dir) {
-	// handle slight step error
-	int adjust = mm/ERR_PER_STEP_16;
-	int steps = (mm*STEPS_PER_MM_16)-adjust;
-	stepn(axis, steps, dir);
-}
-
-// squares are 2" or ~51mm
-void step_squares(int axis, int n) {
+void step_mm(int axis, int mm) {
 	int dir;
-	if (n > 0) {
+	if (mm > 0) {
 		dir = CW;
-	} else if (n < 0) {
+	} else if (mm < 0) {
 		dir = CCW;
 	} else {
 		return;
 	}
-	step_mm(axis, SQUARE_WIDTH*abs(n), dir);
+	mm = abs(mm);
+	// handle slight step error
+	int adjust = mm/ERR_PER_STEP_16;
+	int steps = (mm*STEPS_PER_MM_16)-adjust;
+	stepn(axis, steps, dir);
 }
 
 void set_dir(int axis, int dir) {
