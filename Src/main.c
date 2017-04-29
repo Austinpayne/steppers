@@ -33,26 +33,26 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
+
+/* USER CODE BEGIN Includes */
 #include "include/gpio.h"
 #include "include/stepper.h"
 #include "include/queue.h"
-
-/* USER CODE BEGIN Includes */
-
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+step_queue_t steps;
+char uart_rx_buffer[256];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
 
-step_queue_t steps;
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -139,6 +139,25 @@ void cal_init(void) {
 	
 }
 
+void uart_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOAEN;
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+	// setup uart
+	GPIOA->MODER  |= (2 << GPIO_MODER_MODER9_Pos);  // alternate
+	GPIOA->MODER  |= (2 << GPIO_MODER_MODER10_Pos); // alternate
+	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH1_Pos); // PA9,  USART1_TX
+	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH2_Pos); // PA10, USART1_RX
+	USART1->BRR    = 69; // set baud to 115200 = 8MHz/69
+	USART1->CR1   |= USART_CR1_TE; // enable TX
+	USART1->CR1   |= USART_CR1_RXNEIE; // enable RXNE interrupt
+	USART1->CR1   |= USART_CR1_RE; // enable RX
+	
+	NVIC_SetPriority(USART1_IRQn, 0);
+	NVIC_EnableIRQ(USART1_IRQn);
+	
+	USART1->CR1   |= USART_CR1_UE; // enable USART1
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -163,6 +182,19 @@ int main(void)
 	while (1)
 	{
 		__WFI();  
+	}
+}
+
+void USART1_IRQHandler(void) {
+	static int i = 0;
+	char temp = USART1->RDR;
+
+	if (temp == '\r' || temp == '\n') {
+		uart_rx_buffer[i++] = '\0'; // terminate
+		// now process
+		char *cmd = strtok(uart_rx_buffer, " ");
+	} else {
+		uart_rx_buffer[i++] = temp;
 	}
 }
 
