@@ -33,12 +33,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
-
-#define X 0
-#define Y 1
-#define PRESCALE 50
-#define AUTO_RELOAD 20
-#define DUTY_CYCLE 2
+#include "include/gpio.h"
+#include "include/stepper.h"
+#include "include/queue.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -54,18 +51,8 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
-void gpio_output_init(GPIO_TypeDef * port, uint32_t pin);
-void gpio_input_init(GPIO_TypeDef * port, uint32_t pin);
-void gpio_write_reg32(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
-void gpio_write_reg16(__IO uint32_t * reg, uint32_t pin, uint32_t bits);
-void gpio_toggle_reg16(__IO uint32_t * reg, uint32_t pin);
-void init_steps(void);
-void step(void);
-void step_new(void);
-void stepn(int axis, int n);
 
-int stepx;
-int stepy;
+step_queue_t steps;
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -82,6 +69,103 @@ void  button_init(void) {
     GPIOC->PUPDR |= GPIO_PUPDR_PUPDR0_1;                                        // Set to pull-down
 }
 
+void timer_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
+	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
+	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
+	
+	TIM2->PSC   = PRESCALE;
+	TIM2->ARR   = AUTO_RELOAD;   
+	TIM2->DIER |= TIM_DIER_UIE; // enable timer interrupt
+	
+	TIM3->PSC = PRESCALE;	// frequency = (8MHz/PSC/ARR) *approximatly*
+	TIM3->ARR = AUTO_RELOAD;
+	// duty cycle: CCR is % of ARR register (ex. ARR = 10, CCR = 1 => 10% duty cycle)
+	TIM3->CCR3 = 0; // PC8
+	TIM3->CCR4 = 0; // PC9
+	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 1
+	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC4M_Pos); // ch 4 capture/compare PWM mode 1
+	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 2
+	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos); // ch 3 capture/compare PWM mode 2
+	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
+	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
+	
+	NVIC_SetPriority(TIM2_IRQn, 0);
+	NVIC_EnableIRQ(TIM2_IRQn);
+	
+	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
+	TIM3->CR1 |= TIM_CR1_CEN;
+}
+
+void output_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
+	
+	gpio_output_init(GPIOC, X_DIR); // PC0 (x-axis dir)
+	gpio_output_init(GPIOC, Y_DIR); // PC1 (y-axis dir)
+	
+	gpio_output_init(GPIOC, X_SLEEP); // PC6 (x-axis sleep)
+	gpio_output_init(GPIOC, Y_SLEEP); // PC7 (y-axis sleep)
+	
+	// wire PWM to LED to verify output (use PC8 or PC9 to capture PWM output)
+	gpio_alternate_init(GPIOC, X_STEP); // PC8 (x-axis step)
+	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH0);
+	gpio_alternate_init(GPIOC, Y_STEP); // PC9 (y-axis step)
+	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
+}
+
+void cal_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
+	
+	gpio_output_init(GPIOC, X_RESET); // PC2 (x-axis reset)
+	gpio_output_init(GPIOC, Y_RESET); // PC3 (y-axis reset)
+	
+	gpio_input_init(GPIOC, X_CAL);
+	gpio_input_init(GPIOC, Y_CAL);
+	
+	// enable cal switch interrupts
+	/*
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
+	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
+	EXTI->RTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
+	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
+	NVIC_SetPriority(EXTI4_15_IRQn, 1);
+	*/
+	
+	// TODO: move axis until they hit cal switches then clear counters
+	
+	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
+	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
+	
+}
+
+/* USER CODE END 0 */
+
+int main(void)
+{
+	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
+	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
+	HAL_Init();
+	SystemClock_Config();
+	
+	button_init();
+	timer_init();
+	output_init();
+	cal_init();
+	step_init();
+	
+	init(&steps);
+	add(&steps, 3, -3);
+	add(&steps, -3, 3);
+	add(&steps, 10, -4);
+	add(&steps, -10, 6 );
+	
+	while (1)
+	{
+		__WFI();  
+	}
+}
+
 void HAL_SYSTICK_Callback(void) {
     static uint32_t debouncer = 0;
     
@@ -91,188 +175,33 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		stepn(X, 10000);
+		step_squares(X, 2); // step 30mm, about one rotation using 1/16 microstep
+		step_squares(Y, 4);
     }
     
 }
 
-/* USER CODE END 0 */
-
-int main(void)
-{
-	
-	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
-	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
-	HAL_Init();
-	SystemClock_Config();
-	
-	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
-	
-	TIM3->DIER |= TIM_DIER_UIE;
-	//TIM3->DIER |= TIM_DIER_CC3IE; // capture 4 interrupt enable
-	//TIM3->DIER |= TIM_DIER_CC4IE; // capture 4 interrupt enable
-	
-	TIM3->PSC = PRESCALE;	// frequency = (8MHz/PSC/ARR) *approximatly*
-	TIM3->ARR = AUTO_RELOAD;
-	// duty cycle: CCR is % of ARR register (ex. ARR = 10, CCR = 1 => 10% duty cycle)
-	//TIM3->CCR3 = DUTY_CYCLE; // PC8
-	//TIM3->CCR4 = DUTY_CYCLE; // PC9
-	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 1
-	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC4M_Pos); // ch 4 capture/compare PWM mode 1
-	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 2
-	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos); // ch 3 capture/compare PWM mode 2
-	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
-	//TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
-		
-	gpio_output_init(GPIOC, 6);
-	gpio_output_init(GPIOC, 7);
-	
-	// wire PWM to LED to verify output (use PC8 or PC9 to capture PWM output)
-	gpio_write_reg32(&(GPIOC->MODER), 8, 2); // mode (alternate 01)
-	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH0);
-	gpio_write_reg16(&(GPIOC->OTYPER), 8, 0); // type (push-pull 0)
-	gpio_write_reg32(&(GPIOC->OSPEEDR), 8, 0); // speed (low x0)
-	gpio_write_reg32(&(GPIOC->PUPDR), 8, 0); // resistor (none 00)
-	
-	gpio_write_reg32(&(GPIOC->MODER), 9, 2); // mode (alternate 01)
-	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
-	gpio_write_reg16(&(GPIOC->OTYPER), 9, 0); // type (push-pull 0)
-	gpio_write_reg32(&(GPIOC->OSPEEDR), 9, 0); // speed (low x0)
-	gpio_write_reg32(&(GPIOC->PUPDR), 9, 0); // resistor (none 00)
-	
-	NVIC_SetPriority(TIM3_IRQn, 0);
-	NVIC_EnableIRQ(TIM3_IRQn);
-	
-	init_steps();
-	stepn(X, 10000);
-	
-  while (1)
-  {
-	  __WFI();
-  }
-
-}
-
-
-
-void TIM3_IRQHandler(void) {
-	step_new();
-	//step();
-}
-
-void init_steps(void) {
-	stepx = -1;
-	stepy = 0;
-}
-
-void step_new(void) {
-	if (stepx > 0) {
-		stepx--;
-	} else if (stepx == 0) {
-		stepx = -1;
-		TIM3->CCR3 = 0;
-		TIM3->CR1 &= ~(TIM_CR1_CEN);
+void EXTI4_15_IRQHandler(void) {
+	if (GPIOC->IDR & (1 << X_CAL)) {
+		step_stop(X);
+		EXTI->PR |= EXTI_PR_PIF4;
+	} else if (GPIOC->IDR & (1 << Y_CAL)) {
+		step_stop(Y);
+		EXTI->PR |= EXTI_PR_PIF5;
 	}
-	TIM3->SR &= ~(TIM_SR_UIF);
 }
 
-void step(void) {
-	if (stepx != 0) {
-		stepx--;
-		TIM3->SR &= ~(TIM_SR_CC3IF);
+void TIM2_IRQHandler(void) {
+	// if not stepping, get next step from queue
+	if (!empty(&steps) && get_steps(X) == OFF && get_steps(Y) == OFF) {
+		steps_t next = rm(&steps);
+		step_squares(X, next.x_steps);
+		step_squares(Y, next.y_steps);
 	} else {
-		TIM3->DIER &= ~TIM_DIER_CC3IE;
-		TIM3->CCR3 = 0;
-		//stepx = -1;
-		//TIM3->SR &= ~(TIM_SR_CC3IF);
-		//TIM3->CCER  &= ~(TIM_CCER_CC3E);
-	} 
-	
-	if (stepy != 0) {
-		stepy--;
-		TIM3->SR &= ~(TIM_SR_CC4IF);
-	} else {
-		TIM3->DIER &= ~TIM_DIER_CC3IE;
-		TIM3->CCR4 = 0;
-		//stepy = -1;
-		//TIM3->SR &= ~(TIM_SR_CC4IF);
-		//TIM3->CCER  &= ~(TIM_CCER_CC4E);
+		step();
 	}
 }
 
-/*
-	Rotate n steps
-*/
-void stepn(int axis, int n) {
-	if (axis == X) {
-		stepx = n;
-		TIM3->CCR3 = DUTY_CYCLE;
-		TIM3->CR1 |= TIM_CR1_CEN;
-		//TIM3->CCER  |= TIM_CCER_CC3E;
-	}
-	else if (axis == Y) {
-		stepy = n;
-		//TIM3->CCER  |= TIM_CCER_CC4E;
-	}	
-}
-
-/**
- *	Initializes the specified GPIO port and pin to be 
- *	an output with the following settings:
- *		- push-pull output, low speed, no pull-up/down resistor
- */
-void gpio_output_init(GPIO_TypeDef * port, uint32_t pin) {
-	gpio_write_reg32(&(port->MODER), pin, 1); // mode (output 01)
-	gpio_write_reg16(&(port->OTYPER), pin, 0); // type (push-pull 0)
-	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
-	gpio_write_reg32(&(port->PUPDR), pin, 0); // resistor (none 00)
-}
-
-/**
- *	Initializes the specified GPIO port and pin to be 
- *	an input with the following settings:
- *		- low speed, pull-up resistor
- */
-void gpio_input_init(GPIO_TypeDef * port, uint32_t pin) {
-	gpio_write_reg32(&(port->MODER), pin, 0); // mode (input 00)
-	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
-	gpio_write_reg32(&(port->PUPDR), pin, 1); // resistor (pull-up 01)
-}
-
-/**
- *	Writes/clears the given bits at the GPIO pin (32 bit register).
- *	Note that the 32 bit refers to the fact that the register uses
- *	all 32 bits, where each GPIO pin occupies 2 bits
- */
-void gpio_write_reg32(__IO uint32_t * reg, uint32_t pin, uint32_t bits) {
-	if (bits)
-		*reg |= (bits << (pin + pin));
-	else // clear
-		*reg &= ~(3 << (pin + pin));
-}
-
-
-/**
- *	Writes/clears the given bits at the GPIO pin (16 bit register).
- *	Note that the 16 bit refers to the fact that the register uses
- *	only the bottom 16 bits, where each GPIO pin occupies 1 bit.
- */
-void gpio_write_reg16(__IO uint32_t * reg, uint32_t pin, uint32_t bits) {
-	if (bits)
-		*reg |= (bits << pin);
-	else // clear
-		*reg &= ~(3 << pin);
-}
-
-/**
- *	Toggles the GPIO pin (16 bit register).
- *	Note that the 16 bit refers to the fact that the register uses
- *	only the bottom 16 bits, where each GPIO pin occupies 1 bit.
- */
-void gpio_toggle_reg16(__IO uint32_t * reg, uint32_t pin) {
-	*reg ^= (1 << pin);
-}
 
 /** System Clock Configuration
 */
