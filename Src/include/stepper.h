@@ -1,3 +1,6 @@
+#ifndef __STEPPER_H_
+#define __STEPPER_H_
+
 // stepper PWM
 #define PRESCALE 50
 #define AUTO_RELOAD 20
@@ -19,8 +22,8 @@
 #define X 0
 #define Y 1
 #define OFF -1
-#define CW   0 // direction
-#define CCW  1
+#define CW   0 // + direction
+#define CCW  1 // - direction
 
 // axis pins (GPIOC)
 #define X_DIR   10
@@ -51,3 +54,5 @@ void set_dir(int axis, int dir);
 int get_steps(int axis);
 int get_pos(int axis);
 int abs(int val);
+
+#endif /* __STEPPER_H_ */

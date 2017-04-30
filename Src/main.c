@@ -37,15 +37,16 @@
 /* USER CODE BEGIN Includes */
 #include "include/gpio.h"
 #include "include/stepper.h"
-#include "include/queue.h"
+#include "include/stepper_control.h"
 #include "string.h"
+
+#define NEXT_TOKEN(d) (strtok(NULL, (d)))
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-step_queue_t steps;
 char uart_rx_buffer[256];
 /* USER CODE END PV */
 
@@ -172,12 +173,7 @@ int main(void)
 	output_init();
 	cal_init();
 	step_init();
-	
-	init(&steps);
-	add(&steps, 3, -3);
-	add(&steps, -3, 3);
-	add(&steps, 10, -4);
-	add(&steps, -10, 6 );
+	step_control_init();
 	
 	while (1)
 	{
@@ -192,11 +188,11 @@ void USART1_IRQHandler(void) {
 	if (temp == '\r' || temp == '\n') {
 		uart_rx_buffer[i++] = '\0'; // terminate
 		// now process
-		char *cmd = strtok(uart_rx_buffer, " ");
+		char *cmd = strtok(uart_rx_buffer, ' ');
 		if (cmd && strcmp(cmd, "move") == 0) {
-			char *coords = strtok(uart_rx_buffer, " ");
-			if (coords) {
-				
+			char *coords = NEXT_TOKEN('\n');
+			if (coords && strlen(coords)) {
+				uci_move(coords);
 			}
 		}
 	} else {
@@ -228,18 +224,6 @@ void EXTI4_15_IRQHandler(void) {
 		EXTI->PR |= EXTI_PR_PIF5;
 	}
 }
-
-void TIM2_IRQHandler(void) {
-	// if not stepping, get next step from queue
-	if (!empty(&steps) && get_steps(X) == OFF && get_steps(Y) == OFF) {
-		steps_t next = rm(&steps);
-		step_squares(X, next.x_steps);
-		step_squares(Y, next.y_steps);
-	} else {
-		step();
-	}
-}
-
 
 /** System Clock Configuration
 */

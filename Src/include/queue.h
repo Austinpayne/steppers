@@ -1,3 +1,6 @@
+#ifndef __QUEUE_H_
+#define __QUEUE_H_
+
 #define SIZE 25
 
 // steps tuple
@@ -18,3 +21,5 @@ int  add(step_queue_t *q, int x, int y);
 steps_t  rm(step_queue_t *q);
 int  empty(step_queue_t *q);
 int  full(step_queue_t *q);
+
+#endif /* __QUEUE_H_ */
