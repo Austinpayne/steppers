@@ -7,7 +7,9 @@
 #define ASCII_OFFSET_a 97 // 'a'
 #define ASCII_OFFSET_0 49 // '0'-1 (for proper index, convert 1->0)
 
+void step_control_init(void);
 void step_squares(int axis, int n);
 void move_piece(int x, int y, int dest_x, int dest_y);
+void uci_move(const char *move);
 
 #endif /* __STEPPER_CTRL_H_ */

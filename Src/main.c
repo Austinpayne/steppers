@@ -159,28 +159,6 @@ void uart_init(void) {
 	USART1->CR1   |= USART_CR1_UE; // enable USART1
 }
 
-/* USER CODE END 0 */
-
-int main(void)
-{
-	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
-	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
-	HAL_Init();
-	SystemClock_Config();
-	
-	button_init();
-	timer_init();
-	output_init();
-	cal_init();
-	step_init();
-	step_control_init();
-	
-	while (1)
-	{
-		__WFI();  
-	}
-}
-
 void USART1_IRQHandler(void) {
 	static int i = 0;
 	char temp = USART1->RDR;
@@ -188,9 +166,9 @@ void USART1_IRQHandler(void) {
 	if (temp == '\r' || temp == '\n') {
 		uart_rx_buffer[i++] = '\0'; // terminate
 		// now process
-		char *cmd = strtok(uart_rx_buffer, ' ');
+		char *cmd = strtok(uart_rx_buffer, " ");
 		if (cmd && strcmp(cmd, "move") == 0) {
-			char *coords = NEXT_TOKEN('\n');
+			char *coords = NEXT_TOKEN("\n");
 			if (coords && strlen(coords)) {
 				uci_move(coords);
 			}
@@ -222,6 +200,28 @@ void EXTI4_15_IRQHandler(void) {
 	} else if (GPIOC->IDR & (1 << Y_CAL)) {
 		step_stop(Y);
 		EXTI->PR |= EXTI_PR_PIF5;
+	}
+}
+
+/* USER CODE END 0 */
+
+int main(void)
+{
+	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
+	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
+	HAL_Init();
+	SystemClock_Config();
+	
+	button_init();
+	timer_init();
+	output_init();
+	cal_init();
+	step_init();
+	step_control_init();
+	
+	while (1)
+	{
+		__WFI();  
 	}
 }
 
