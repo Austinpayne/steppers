@@ -174,8 +174,10 @@ int main(void)
 	step_init();
 	
 	init(&steps);
-	add(&steps, 2, -2);
-	add(&steps, -2, 2);
+	add(&steps, 3, -3);
+	add(&steps, -3, 3);
+	add(&steps, 10, -4);
+	add(&steps, -10, 6 );
 	
 	while (1)
 	{
@@ -191,6 +193,12 @@ void USART1_IRQHandler(void) {
 		uart_rx_buffer[i++] = '\0'; // terminate
 		// now process
 		char *cmd = strtok(uart_rx_buffer, " ");
+		if (cmd && strcmp(cmd, "move") == 0) {
+			char *coords = strtok(uart_rx_buffer, " ");
+			if (coords) {
+				
+			}
+		}
 	} else {
 		uart_rx_buffer[i++] = temp;
 	}
@@ -206,7 +214,7 @@ void HAL_SYSTICK_Callback(void) {
 
     if(debouncer == 0x7FFFFFFF) {
 		step_squares(X, 2); // step 30mm, about one rotation using 1/16 microstep
-		step_squares(Y, 2);
+		step_squares(Y, 4);
     }
     
 }
