@@ -40,7 +40,7 @@
 #include "include/stepper_control.h"
 #include "string.h"
 
-#define NEXT_TOKEN(d) (strtok(NULL, (d)))
+#define NEXT_TOKEN(d) (strtok(NULL, d))
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -148,12 +148,12 @@ void uart_init(void) {
 	GPIOA->MODER  |= (2 << GPIO_MODER_MODER10_Pos); // alternate
 	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH1_Pos); // PA9,  USART1_TX
 	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH2_Pos); // PA10, USART1_RX
-	USART1->BRR    = 69; // set baud to 115200 = 8MHz/69
+	USART1->BRR    = 833; // set baud to 9600 = 8MHz/833
 	USART1->CR1   |= USART_CR1_TE; // enable TX
 	USART1->CR1   |= USART_CR1_RXNEIE; // enable RXNE interrupt
 	USART1->CR1   |= USART_CR1_RE; // enable RX
 	
-	NVIC_SetPriority(USART1_IRQn, 0);
+	NVIC_SetPriority(USART1_IRQn, 1);
 	NVIC_EnableIRQ(USART1_IRQn);
 	
 	USART1->CR1   |= USART_CR1_UE; // enable USART1
@@ -162,19 +162,23 @@ void uart_init(void) {
 void USART1_IRQHandler(void) {
 	static int i = 0;
 	char temp = USART1->RDR;
-
-	if (temp == '\r' || temp == '\n') {
-		uart_rx_buffer[i++] = '\0'; // terminate
-		// now process
-		char *cmd = strtok(uart_rx_buffer, " ");
-		if (cmd && strcmp(cmd, "move") == 0) {
-			char *coords = NEXT_TOKEN("\n");
-			if (coords && strlen(coords)) {
-				uci_move(coords);
+	
+	if (temp != 16 && temp != 3) {
+		if (temp == '\r' || temp == '\n') {
+			uart_rx_buffer[i++] = '\0'; // terminate
+			// now process
+			char *cmd = strtok(uart_rx_buffer, " ");
+			if (cmd && strcmp(cmd, "move") == 0) {
+				char *coords = NEXT_TOKEN("\n");
+				if (coords && strlen(coords) >= 4) {
+					uci_move(coords);
+				}
 			}
+			i = 0;
+			memset(uart_rx_buffer, 0, sizeof(uart_rx_buffer));
+		} else {
+			uart_rx_buffer[i++] = temp;
 		}
-	} else {
-		uart_rx_buffer[i++] = temp;
 	}
 }
 
@@ -216,8 +220,10 @@ int main(void)
 	timer_init();
 	output_init();
 	cal_init();
+	uart_init();
 	step_init();
 	step_control_init();
+	uci_move("e2e4");
 	
 	while (1)
 	{

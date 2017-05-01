@@ -15,8 +15,8 @@ void step_squares(int axis, int n) {
 
 void move_piece(int x, int y, int dest_x, int dest_y) {
 	 // goto src
-	 int x_align = get_pos(X) - x;
-	 int y_align = get_pos(Y) - y;
+	 int x_align = x - get_pos(X);
+	 int y_align = y - get_pos(Y);
 	 add(&steps, x_align, y_align);
 	
 	 // turn on electromagnet (after move)
