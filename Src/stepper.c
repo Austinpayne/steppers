@@ -9,6 +9,9 @@ int y_pos;
 int x_dir;
 int y_dir;
 
+/*
+ *	initialize step counters and position
+ */
 void step_init(void) {
 	step_stop(X);
 	step_stop(Y);
@@ -18,6 +21,10 @@ void step_init(void) {
 	y_dir = 1;
 }
 
+/*
+ *	stops the axis by turning off axis PWM,
+ *  and putting the motor driver into sleep mode
+ */
 void step_stop(int axis) {
 	if (axis == X) {
 		SLEEP(X);
@@ -32,6 +39,10 @@ void step_stop(int axis) {
 	}
 }
 
+/*
+ *	decrements step by one, when
+ *  steps == 0, stops stepping
+ */
 void step(void) {
 	if (x_step > 0) {
 		x_step--;
@@ -68,6 +79,11 @@ void stepn(int axis, int n, int dir) {
 	}	
 }
 
+/*
+ *	set internal step count
+ *  set axis direction by passing + or - mm
+ *  + for clockwise, - for counter-clockwise
+ */
 void step_mm(int axis, int mm) {
 	int dir;
 	if (mm > 0) {
@@ -80,10 +96,13 @@ void step_mm(int axis, int mm) {
 	mm = abs(mm);
 	// handle slight step error
 	int adjust = mm/ERR_PER_STEP_16;
-	int steps = (mm*STEPS_PER_MM_16)-adjust;
+	int steps = mm_to_steps(mm)-adjust;
 	stepn(axis, steps, dir);
 }
 
+/*
+ *	Set direction of axis
+ */
 void set_dir(int axis, int dir) {
 	if (axis == X) {
 		if (dir == CW) {
@@ -102,12 +121,32 @@ void set_dir(int axis, int dir) {
 	}
 }
 
+/*
+ *	get current axis steps
+ */
 int get_steps(int axis) {
 	return (axis == X ? x_step : y_step);
 }
 
+/*
+ *	return current axis position, in mm
+ */
 int get_pos(int axis) {
-	return (axis == X ? x_pos : y_pos);
+	return (axis == X ? steps_to_mm(x_pos) : steps_to_mm(y_pos));
+}
+
+/*
+ *	mm = steps/STEPS_PER_MM
+ */
+int steps_to_mm(int steps) {
+	return steps/STEPS_PER_MM_16;
+}
+
+/*
+ *	steps = mm*STEPS_PER_MM
+ */
+int mm_to_steps(int mm) {
+	return mm*STEPS_PER_MM_16;
 }
 
 /*
