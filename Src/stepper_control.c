@@ -2,22 +2,32 @@
 #include "include/stepper_control.h"
 #include "include/queue.h"
 
-step_queue_t steps;
+tuple_queue_t steps; // in mm
 
 void step_control_init(void) {
 	init(&steps);
 }
 
-// squares are 2" or ~51mm
-void step_squares(int axis, int n) {
-	step_mm(axis, SQUARE_WIDTH*n);
+void add_to_queue(int x, int y) {
+	add(&steps, x, y);
 }
 
+void empty_queue(void) {
+	clear_queue(&steps);
+}
+
+// squares are 2" or ~51mm
+void step_squares(int axis, int n) {
+	step_mm(axis, squares_to_mm(n));
+}
+
+/*
+ *	x, y, dest_x, dest_y are in squares
+ */
 void move_piece(int x, int y, int dest_x, int dest_y) {
 	 // goto src
-	 int x_align = x - get_pos(X);
-	 int y_align = y - get_pos(Y);
-	 add(&steps, x_align, y_align);
+	 int x_align = squares_to_mm(x) - get_pos(X); // in mm
+	 int y_align = squares_to_mm(y) - get_pos(Y);
 	
 	 // turn on electromagnet (after move)
 	
@@ -43,9 +53,13 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 		 y_offset = -1;
 	 }
 	 
+	 int x_mm = squares_to_mm(x_squares);
+	 int y_mm = squares_to_mm(y_squares);
+	 
+	 //add(&steps, x_align, y_align);
 	 //add(&steps, x_offset*SQUARE_HALF_WIDTH, y_offset*SQUARE_HALF_WIDTH); // stagger onto line
-	 add(&steps, x_squares , 0);
-	 add(&steps, 0, y_squares);
+	 add(&steps,  x_mm, 0);
+	 add(&steps, 0, y_mm);
 	 //add(&steps, x_offset*SQUARE_HALF_WIDTH, y_offset*SQUARE_HALF_WIDTH); // stagger off line
 	 
 	 // turn off electromagnet (after move)
@@ -60,12 +74,28 @@ void uci_move(const char *move) {
 	move_piece(src_x, src_y, dst_x, dst_y);
 }
 
+/*
+ *	squares = mm/SQUARE_WIDTH
+ */
+int mm_to_squares(int mm) {
+	int squares = mm/SQUARE_WIDTH;
+	return squares;
+}
+
+/*
+ *	mm = SQUARE_WIDTH*squares
+ */
+int squares_to_mm(int squares) {
+	int mm = SQUARE_WIDTH*squares;
+	return mm;
+}
+
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
 	if (!empty(&steps) && get_steps(X) == OFF && get_steps(Y) == OFF) {
-		steps_t next = rm(&steps);
-		step_squares(X, next.x_steps);
-		step_squares(Y, next.y_steps);
+		tuple_t next = rm(&steps);
+		step_mm(X, next.x);
+		step_mm(Y, next.y);
 	} else {
 		step();
 	}

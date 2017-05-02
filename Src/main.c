@@ -91,7 +91,7 @@ void timer_init(void) {
 	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
 	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
 	
-	NVIC_SetPriority(TIM2_IRQn, 0);
+	NVIC_SetPriority(TIM2_IRQn, 1);
 	NVIC_EnableIRQ(TIM2_IRQn);
 	
 	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
@@ -124,19 +124,22 @@ void cal_init(void) {
 	gpio_input_init(GPIOC, Y_CAL);
 	
 	// enable cal switch interrupts
-	/*
+	
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
 	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	EXTI->RTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
+	EXTI->FTSR |= (EXTI_FTSR_FT4 | EXTI_FTSR_FT5); // trigger on rising edge
 	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	NVIC_SetPriority(EXTI4_15_IRQn, 1);
-	*/
+	NVIC_SetPriority(EXTI4_15_IRQn, 0);
 	
 	// TODO: move axis until they hit cal switches then clear counters
 	
 	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
 	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
+	
+	add_to_queue(-2000, 0);
+	add_to_queue(0, -2000);
+	//add_to_queue(-2000, -2000);
 	
 }
 
@@ -159,10 +162,20 @@ void uart_init(void) {
 	USART1->CR1   |= USART_CR1_UE; // enable USART1
 }
 
+// tx one char to serial
+void tx_char(char character) {
+	while(1) {
+		if (USART1->ISR & USART_ISR_TXE) {
+			break;
+		}
+	}
+	USART1->TDR = character;
+}
+
 void USART1_IRQHandler(void) {
 	static int i = 0;
 	char temp = USART1->RDR;
-	
+	tx_char(temp);
 	if (temp != 16 && temp != 3) {
 		if (temp == '\r' || temp == '\n') {
 			uart_rx_buffer[i++] = '\0'; // terminate
@@ -191,19 +204,36 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		step_squares(X, 2); // step 30mm, about one rotation using 1/16 microstep
-		step_squares(Y, 4);
+		step_stop(X);
+		step_stop(Y);
+		empty_queue();
     }
     
 }
 
 void EXTI4_15_IRQHandler(void) {
-	if (GPIOC->IDR & (1 << X_CAL)) {
+	static uint8_t x_debouncer = 0;
+	static uint8_t y_debouncer = 0;
+    
+    x_debouncer = (x_debouncer << 1);
+    if (GPIOC->IDR & (1 << X_CAL)) {
+        x_debouncer |= 0x1;
+    }
+	y_debouncer = (y_debouncer << 1);
+    if (GPIOC->IDR & (1 << Y_CAL)) {
+        y_debouncer |= 0x1;
+    }
+	
+	
+	if (x_debouncer == 0x7F) {
 		step_stop(X);
-		EXTI->PR |= EXTI_PR_PIF4;
-	} else if (GPIOC->IDR & (1 << Y_CAL)) {
+		add_to_queue(5, 5);
+		EXTI->PR |= (1 << X_CAL); // clear flag
+	} 
+	if (y_debouncer == 0x7F) {
 		step_stop(Y);
-		EXTI->PR |= EXTI_PR_PIF5;
+		//add_to_queue(0, 5);
+		EXTI->PR |= (1 << Y_CAL);
 	}
 }
 
@@ -219,11 +249,10 @@ int main(void)
 	button_init();
 	timer_init();
 	output_init();
-	cal_init();
 	uart_init();
 	step_init();
 	step_control_init();
-	uci_move("e2e4");
+	cal_init();
 	
 	while (1)
 	{

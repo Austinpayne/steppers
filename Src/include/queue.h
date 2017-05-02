@@ -5,21 +5,22 @@
 
 // steps tuple
 typedef struct {
-	int x_steps;
-	int y_steps;
-} steps_t;
+	int x;
+	int y;
+} tuple_t;
 
 // queue of steps
 typedef struct {
 	int head;
 	int end;
-	steps_t queue[SIZE];
-} step_queue_t;
+	tuple_t queue[SIZE];
+} tuple_queue_t;
 
-void init(step_queue_t *q);
-int  add(step_queue_t *q, int x, int y);
-steps_t  rm(step_queue_t *q);
-int  empty(step_queue_t *q);
-int  full(step_queue_t *q);
+void init(tuple_queue_t *q);
+int  add(tuple_queue_t *q, int x, int y);
+tuple_t  rm(tuple_queue_t *q);
+int  empty(tuple_queue_t *q);
+int  full(tuple_queue_t *q);
+void clear_queue(tuple_queue_t *q);
 
 #endif /* __QUEUE_H_ */

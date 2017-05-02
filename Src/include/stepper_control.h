@@ -11,5 +11,9 @@ void step_control_init(void);
 void step_squares(int axis, int n);
 void move_piece(int x, int y, int dest_x, int dest_y);
 void uci_move(const char *move);
+int mm_to_squares(int mm);
+int squares_to_mm(int squares);
+void add_to_queue(int x, int y);
+void empty_queue(void);
 
 #endif /* __STEPPER_CTRL_H_ */
