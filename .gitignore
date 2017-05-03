@@ -72,6 +72,10 @@ RTE/
 *.s
 Drivers/
 
+# kiel debugger files
+*.scvd
+*.iex
+
 # unit testing
 unity/
 *.zip
