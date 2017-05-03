@@ -58,7 +58,6 @@ char uart_rx_buffer[256];
 void SystemClock_Config(void);
 void Error_Handler(void);
 
-
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 
@@ -272,23 +271,43 @@ void EXTI4_15_IRQHandler(void) {
 
 int main(void)
 {
-	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
-	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
-	HAL_Init();
-	SystemClock_Config();
-	
-	button_init();
-	timer_init();
-	output_init();
-	uart_init();
-	step_init();
-	step_control_init();
-	cal_init();
-	
-	while (1)
-	{
-		__WFI();  
-	}
+
+  /* USER CODE BEGIN 1 */
+  // LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
+  // Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
+  /* USER CODE END 1 */
+
+  /* MCU Configuration----------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* Initialize all configured peripherals */
+
+  /* USER CODE BEGIN 2 */
+  button_init();
+  timer_init();
+  output_init();
+  uart_init();
+  step_init();
+  step_control_init();
+  cal_init();
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  __WFI();
+  }
+  /* USER CODE END 3 */
+
 }
 
 /** System Clock Configuration
