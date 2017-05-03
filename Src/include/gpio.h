@@ -3,6 +3,7 @@
 
 #include "stm32f0xx_hal.h"
 
+// func prototypes
 void gpio_output_init(GPIO_TypeDef * port, uint32_t pin);
 void gpio_alternate_init(GPIO_TypeDef * port, uint32_t pin);
 void gpio_input_init(GPIO_TypeDef * port, uint32_t pin);

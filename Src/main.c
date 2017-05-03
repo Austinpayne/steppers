@@ -40,6 +40,10 @@
 #include "include/stepper_control.h"
 #include "string.h"
 
+#define UART_PRIORITY 1
+#define CAL_PRIORITY  0
+#define STEP_PRIORITY 1
+
 #define NEXT_TOKEN(d) (strtok(NULL, d))
 /* USER CODE END Includes */
 
@@ -62,6 +66,9 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN 0 */
 
+/*
+ *	initialize user button
+ */
 void  button_init(void) {
     // Initialize PA0 for button input
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;                                          // Enable peripheral clock to GPIOA
@@ -70,15 +77,20 @@ void  button_init(void) {
     GPIOC->PUPDR |= GPIO_PUPDR_PUPDR0_1;                                        // Set to pull-down
 }
 
+/*
+ *	initialize PWM timers for step control
+ */
 void timer_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
 	
+	// for interrupt
 	TIM2->PSC   = PRESCALE;
 	TIM2->ARR   = AUTO_RELOAD;   
-	TIM2->DIER |= TIM_DIER_UIE; // enable timer interrupt
+	TIM2->DIER |= TIM_DIER_UIE;
 	
+	// PWM waveforms for stepper driver DRV8824
 	TIM3->PSC = PRESCALE;	// frequency = (8MHz/PSC/ARR) *approximatly*
 	TIM3->ARR = AUTO_RELOAD;
 	// duty cycle: CCR is % of ARR register (ex. ARR = 10, CCR = 1 => 10% duty cycle)
@@ -86,18 +98,19 @@ void timer_init(void) {
 	TIM3->CCR4 = 0; // PC9
 	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 1
 	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC4M_Pos); // ch 4 capture/compare PWM mode 1
-	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 2
-	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos); // ch 3 capture/compare PWM mode 2
 	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
 	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
 	
-	NVIC_SetPriority(TIM2_IRQn, 1);
+	NVIC_SetPriority(TIM2_IRQn, STEP_PRIORITY);
 	NVIC_EnableIRQ(TIM2_IRQn);
 	
 	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
 	TIM3->CR1 |= TIM_CR1_CEN;
 }
 
+/*
+ *	initialize PWM output pins
+ */
 void output_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	
@@ -114,6 +127,10 @@ void output_init(void) {
 	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
 }
 
+/*
+ *	initialize calibration switches and 
+ *  set up EXTI interrupts
+ */
 void cal_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	
@@ -124,25 +141,27 @@ void cal_init(void) {
 	gpio_input_init(GPIOC, Y_CAL);
 	
 	// enable cal switch interrupts
-	
+	// switches are active low
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
 	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	EXTI->FTSR |= (EXTI_FTSR_FT4 | EXTI_FTSR_FT5); // trigger on rising edge
+	EXTI->FTSR |= (EXTI_FTSR_FT4 | EXTI_FTSR_FT5); // trigger on falling edge
+	
 	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	NVIC_SetPriority(EXTI4_15_IRQn, 0);
+	NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
 	
-	// TODO: move axis until they hit cal switches then clear counters
-	
+	// resets internal step counters in DRV8824
 	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
 	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
 	
+	// step until hit calibration switches
 	add_to_queue(-2000, 0);
-	add_to_queue(0, -2000);
-	//add_to_queue(-2000, -2000);
-	
+	add_to_queue(0, -2000);	
 }
 
+/*
+ *	initialize uart peripheral
+ */
 void uart_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOAEN;
 	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
@@ -156,13 +175,15 @@ void uart_init(void) {
 	USART1->CR1   |= USART_CR1_RXNEIE; // enable RXNE interrupt
 	USART1->CR1   |= USART_CR1_RE; // enable RX
 	
-	NVIC_SetPriority(USART1_IRQn, 1);
+	NVIC_SetPriority(USART1_IRQn, UART_PRIORITY);
 	NVIC_EnableIRQ(USART1_IRQn);
 	
 	USART1->CR1   |= USART_CR1_UE; // enable USART1
 }
 
-// tx one char to serial
+/*
+ *	tx one char to serial
+ */
 void tx_char(char character) {
 	while(1) {
 		if (USART1->ISR & USART_ISR_TXE) {
@@ -172,13 +193,19 @@ void tx_char(char character) {
 	USART1->TDR = character;
 }
 
+/*
+ *	read in serial data, char by char,
+ *  until finding a move command.
+ */
 void USART1_IRQHandler(void) {
 	static int i = 0;
 	char temp = USART1->RDR;
-	tx_char(temp);
-	if (temp != 16 && temp != 3) {
+	//tx_char(temp); // for usability with serial terminal
+	
+	// TODO: add more error checking
+	if (temp != 16 && temp != 3) { // ignore control chars that Photon sends
 		if (temp == '\r' || temp == '\n') {
-			uart_rx_buffer[i++] = '\0'; // terminate
+			uart_rx_buffer[i++] = '\0'; // terminate string
 			// now process
 			char *cmd = strtok(uart_rx_buffer, " ");
 			if (cmd && strcmp(cmd, "move") == 0) {
@@ -187,7 +214,7 @@ void USART1_IRQHandler(void) {
 					uci_move(coords);
 				}
 			}
-			i = 0;
+			i = 0; // clear buffer
 			memset(uart_rx_buffer, 0, sizeof(uart_rx_buffer));
 		} else {
 			uart_rx_buffer[i++] = temp;
@@ -195,6 +222,9 @@ void USART1_IRQHandler(void) {
 	}
 }
 
+/*
+ *	for user button (kill switch)
+ */
 void HAL_SYSTICK_Callback(void) {
     static uint32_t debouncer = 0;
     
@@ -211,6 +241,9 @@ void HAL_SYSTICK_Callback(void) {
     
 }
 
+/*
+ *	calibration switches
+ */
 void EXTI4_15_IRQHandler(void) {
 	static uint8_t x_debouncer = 0;
 	static uint8_t y_debouncer = 0;
@@ -224,15 +257,13 @@ void EXTI4_15_IRQHandler(void) {
         y_debouncer |= 0x1;
     }
 	
-	
 	if (x_debouncer == 0x7F) {
 		step_stop(X);
-		add_to_queue(5, 5);
+		add_to_queue(5, 5); // step away from buttons by 5mm
 		EXTI->PR |= (1 << X_CAL); // clear flag
 	} 
 	if (y_debouncer == 0x7F) {
 		step_stop(Y);
-		//add_to_queue(0, 5);
 		EXTI->PR |= (1 << Y_CAL);
 	}
 }

@@ -9,6 +9,9 @@
 #include "stm32f0xx_hal.h"
 #endif
 
+/*
+ *	initialize queue
+ */
 void init(tuple_queue_t *q) {
 	int i;
 	q->head = 0;
@@ -19,11 +22,11 @@ void init(tuple_queue_t *q) {
 	}
 }
  
- /*
-  *
-  */
+/*
+ *	add tuple (x, y) to end of queue 
+ */
 int add(tuple_queue_t *q, int x, int y) {
-	 if(!full(q) && ( // queue not full and
+	if(!is_full(q) && ( // queue not full and
 		 (x != 0 && y != 0) || // x,y are both non-zero
 		 (x == 0 && y != 0) || // or x is zero but y is non-zero
 		 (x !=0  && y ==0))) { // or x is non-zero by y is zero
@@ -39,11 +42,14 @@ int add(tuple_queue_t *q, int x, int y) {
 	 } else {
 		return 0;
 	 }
- }
+}
  
+/*
+ *	remove and return tuple at head of queue
+ */
 tuple_t rm(tuple_queue_t *q) {
 	tuple_t current = {0,0}; // empty slot represented by 0,0
-	if(!empty(q)) { // queue not empty
+	if(!is_empty(q)) { // queue not empty
 		current = q->queue[q->head];
 		q->queue[q->head].x = 0;
 		q->queue[q->head].y = 0;
@@ -55,23 +61,32 @@ tuple_t rm(tuple_queue_t *q) {
 	} 
 	return current;
 }
- 
-int empty(tuple_queue_t *q) {
+
+/*
+ *	check if queue is empty
+ */
+int is_empty(tuple_queue_t *q) {
 	 if (q->head == q->end && q->queue[q->head].x == 0 && q->queue[q->head].y == 0)
 		 return 1;
 	 else
 		 return 0;
 }
  
-int full(tuple_queue_t *q) {
+/*
+ *	check if queue is full
+ */
+int is_full(tuple_queue_t *q) {
 	 if (q->head == q->end && (q->queue[q->head].x != 0 || q->queue[q->head].y != 0))
 		 return 1;
 	 else
 		 return 0;
 }
 
+/*
+ *	remove all tuples from queue
+ */
 void clear_queue(tuple_queue_t *q) {
-	while (!empty(q)) {
+	while (!is_empty(q)) {
 		rm(q);
 	}
 }

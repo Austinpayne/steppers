@@ -6,7 +6,7 @@
 #define AUTO_RELOAD 20
 #define DUTY_CYCLE 2
 
-// stepper  step & gear constants
+// step & gear constants
 #define GEAR_C             30     // approx gear circumference, in mm
 #define STEP_ANGLE         0.0314 // radians, approx 1.8*
 #define GEAR_RADIUS        4.75   // mm
@@ -51,10 +51,10 @@ void step(void);
 void stepn(int axis, int n, int dir);
 void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
-int get_steps(int axis);
-int get_pos(int axis);
-int steps_to_mm(int steps);
-int mm_to_steps(int mm);
-int abs(int val);
+int  get_steps(int axis);
+int  get_pos(int axis);
+int  steps_to_mm(int steps);
+int  mm_to_steps(int mm);
+int  abs(int val);
 
 #endif /* __STEPPER_H_ */

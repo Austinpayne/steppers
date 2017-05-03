@@ -6,7 +6,7 @@ int x_step; // current steps to take
 int y_step;
 int x_pos;  // global position on axis (in steps)
 int y_pos;
-int x_dir;
+int x_dir;  // unit to add/subtract (for position, either +1 or -1)
 int y_dir;
 
 /*

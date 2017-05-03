@@ -1,7 +1,7 @@
 #ifndef __QUEUE_H_
 #define __QUEUE_H_
 
-#define SIZE 25
+#define SIZE 25 // proabably needs to be bigger
 
 // steps tuple
 typedef struct {
@@ -18,9 +18,9 @@ typedef struct {
 
 void init(tuple_queue_t *q);
 int  add(tuple_queue_t *q, int x, int y);
-tuple_t  rm(tuple_queue_t *q);
-int  empty(tuple_queue_t *q);
-int  full(tuple_queue_t *q);
+int  is_empty(tuple_queue_t *q);
+int  is_full(tuple_queue_t *q);
 void clear_queue(tuple_queue_t *q);
+tuple_t  rm(tuple_queue_t *q);
 
 #endif /* __QUEUE_H_ */
