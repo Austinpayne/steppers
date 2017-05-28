@@ -27,15 +27,15 @@ void step_init(void) {
  */
 void step_stop(int axis) {
 	if (axis == X) {
-		SLEEP(X);
 		x_step = OFF;
-		set_dir(X, 0);
+		//set_dir(X, 0);
 		X_PWM = 0;
+		//SLEEP(X);
 	} else if (axis == Y) {
-		SLEEP(Y);
 		y_step = OFF;
-		set_dir(Y, 0);
+		//set_dir(Y, 0);
 		Y_PWM = 0;
+		//SLEEP(Y);
 	}
 }
 
@@ -95,7 +95,7 @@ void step_mm(int axis, int mm) {
 	}
 	mm = abs(mm);
 	// handle slight step error
-	int adjust = mm/ERR_PER_STEP_16;
+	int adjust = 0 /*mm/ERR_PER_STEP_16*/;
 	int steps = mm_to_steps(mm)-adjust;
 	stepn(axis, steps, dir);
 }

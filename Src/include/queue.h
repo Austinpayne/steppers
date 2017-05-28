@@ -1,7 +1,7 @@
 #ifndef __QUEUE_H_
 #define __QUEUE_H_
 
-#define SIZE 25 // proabably needs to be bigger
+#define SIZE 64 // proabably needs to be bigger
 
 // steps tuple
 typedef struct {
