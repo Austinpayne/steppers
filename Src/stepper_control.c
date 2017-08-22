@@ -81,7 +81,8 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 /*
  *  Universal Chess Interface (UCI) move
  *  move is in the form [src_col][src_row][dst_col][dst_row},
- *  example: e2e4
+ *  example:	e2e4 (pawn do not indicate piece)
+ *				Nd3d7 (Night at d3 to d7)
  */
 void uci_move(const char *move) {
 	// TODO: add a lot more error checking

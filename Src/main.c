@@ -44,14 +44,13 @@
 #define CAL_PRIORITY  0
 #define STEP_PRIORITY 1
 
-#define NEXT_TOKEN(d) (strtok(NULL, d))
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-char uart_rx_buffer[256];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -193,47 +192,6 @@ void uart_init(void) {
 	NVIC_EnableIRQ(USART1_IRQn);
 	
 	USART1->CR1   |= USART_CR1_UE; // enable USART1
-}
-
-/*
- *	tx one char to serial
- */
-void tx_char(char character) {
-	while(1) {
-		if (USART1->ISR & USART_ISR_TXE) {
-			break;
-		}
-	}
-	USART1->TDR = character;
-}
-
-/*
- *	read in serial data, char by char,
- *  until finding a move command.
- */
-void USART1_IRQHandler(void) {
-	static int i = 0;
-	char temp = USART1->RDR;
-	//tx_char(temp); // for usability with serial terminal
-	
-	// TODO: add more error checking
-	if (temp != 16 && temp != 3) { // ignore control chars that Photon sends
-		if (temp == '\r' || temp == '\n') {
-			uart_rx_buffer[i++] = '\0'; // terminate string
-			// now process
-			char *cmd = strtok(uart_rx_buffer, " ");
-			if (cmd && strcmp(cmd, "move") == 0) {
-				char *coords = NEXT_TOKEN("\n");
-				if (coords && strlen(coords) >= 4) {
-					uci_move(coords);
-				}
-			}
-			i = 0; // clear buffer
-			memset(uart_rx_buffer, 0, sizeof(uart_rx_buffer));
-		} else {
-			uart_rx_buffer[i++] = temp;
-		}
-	}
 }
 
 /*
