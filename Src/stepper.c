@@ -2,12 +2,12 @@
 #include "include/gpio.h"
 
 // globals
-int x_step; // current steps to take
-int y_step;
-int x_pos;  // global position on axis (in steps)
-int y_pos;
-int x_dir;  // unit to add/subtract (for position, either +1 or -1)
-int y_dir;
+static int x_step; // current steps to take
+static int y_step;
+static int x_pos;  // global position on axis (in steps)
+static int y_pos;
+static int x_dir;  // unit to add/subtract (for position, either +1 or -1)
+static int y_dir;
 
 /*
  *	initialize step counters and position
@@ -15,6 +15,8 @@ int y_dir;
 void step_init(void) {
 	step_stop(X);
 	step_stop(Y);
+	x_step = 0;
+	y_step = 0;
 	x_pos = 0;
 	y_pos = 0;
 	x_dir = 1;
@@ -96,7 +98,7 @@ void step_mm(int axis, int mm) {
 	mm = abs(mm);
 	// handle slight step error
 	int adjust = 0 /*mm/ERR_PER_STEP_16*/;
-	int steps = mm_to_steps(mm)-adjust;
+	int steps = MM_TO_STEPS(mm)-adjust;
 	stepn(axis, steps, dir);
 }
 
@@ -133,20 +135,6 @@ int get_steps(int axis) {
  */
 int get_pos(int axis) {
 	return (axis == X ? steps_to_mm(x_pos) : steps_to_mm(y_pos));
-}
-
-/*
- *	mm = steps/STEPS_PER_MM
- */
-int steps_to_mm(int steps) {
-	return steps/STEPS_PER_MM_16;
-}
-
-/*
- *	steps = mm*STEPS_PER_MM
- */
-int mm_to_steps(int mm) {
-	return mm*STEPS_PER_MM_16;
 }
 
 /*

@@ -268,6 +268,7 @@ int main(void)
   step_control_init();
   cal_init();
   calibrate();
+  step_init();
   
   add_to_queue(50, 0);
   add_to_queue(0, 50);

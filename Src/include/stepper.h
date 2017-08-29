@@ -41,8 +41,9 @@
 #define Y_PWM   TIM3->CCR4
 
 // helper macros
-#define SLEEP(axis) (GPIOC->ODR &= (axis == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
-#define WAKE(axis)  (GPIOC->ODR |= (axis == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
+#define SLEEP(axis)     (GPIOC->ODR &= (axis == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
+#define WAKE(axis)      (GPIOC->ODR |= (axis == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
+#define MM_TO_STEPS(mm) ((mm)*STEPS_PER_MM_16)
 
 // func definitions
 void step_init(void);
@@ -53,8 +54,6 @@ void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
 int  get_steps(int axis);
 int  get_pos(int axis);
-int  steps_to_mm(int steps);
-int  mm_to_steps(int mm);
 int  abs(int val);
 
 #endif /* __STEPPER_H_ */
