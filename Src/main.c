@@ -44,13 +44,14 @@
 #define CAL_PRIORITY  0
 #define STEP_PRIORITY 1
 
+#define NEXT_TOKEN(d) (strtok(NULL, d))
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+char uart_rx_buffer[256];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
