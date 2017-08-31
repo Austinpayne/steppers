@@ -141,21 +141,36 @@ void cal_init(void) {
 	
 	// enable cal switch interrupts
 	// switches are active low
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
-	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	EXTI->FTSR |= (EXTI_FTSR_FT4 | EXTI_FTSR_FT5); // trigger on falling edge
+	//SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
+	//SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
+	//EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
+	//EXTI->FTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
 	
-	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
+	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
+	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
 	
 	// resets internal step counters in DRV8824
 	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
 	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
-	
+}
+
+void calibrate(void) {
 	// step until hit calibration switches
+		
 	add_to_queue(-2000, 0);
-	add_to_queue(0, -2000);	
+	
+	while (!(GPIOC->IDR & (1 << X_CAL))) {
+		// wait until x interrupt
+		// do something at timeout
+    }
+	step_stop(X);
+	add_to_queue(3, -2000);
+	
+	while (!(GPIOC->IDR & (1 << Y_CAL))) {
+		// wait until y interrupt
+    }
+	step_stop(Y);
+	add_to_queue(0, 3);
 }
 
 /*
@@ -181,47 +196,6 @@ void uart_init(void) {
 }
 
 /*
- *	tx one char to serial
- */
-void tx_char(char character) {
-	while(1) {
-		if (USART1->ISR & USART_ISR_TXE) {
-			break;
-		}
-	}
-	USART1->TDR = character;
-}
-
-/*
- *	read in serial data, char by char,
- *  until finding a move command.
- */
-void USART1_IRQHandler(void) {
-	static int i = 0;
-	char temp = USART1->RDR;
-	//tx_char(temp); // for usability with serial terminal
-	
-	// TODO: add more error checking
-	if (temp != 16 && temp != 3) { // ignore control chars that Photon sends
-		if (temp == '\r' || temp == '\n') {
-			uart_rx_buffer[i++] = '\0'; // terminate string
-			// now process
-			char *cmd = strtok(uart_rx_buffer, " ");
-			if (cmd && strcmp(cmd, "move") == 0) {
-				char *coords = NEXT_TOKEN("\n");
-				if (coords && strlen(coords) >= 4) {
-					uci_move(coords);
-				}
-			}
-			i = 0; // clear buffer
-			memset(uart_rx_buffer, 0, sizeof(uart_rx_buffer));
-		} else {
-			uart_rx_buffer[i++] = temp;
-		}
-	}
-}
-
-/*
  *	for user button (kill switch)
  */
 void HAL_SYSTICK_Callback(void) {
@@ -244,7 +218,7 @@ void HAL_SYSTICK_Callback(void) {
  *	calibration switches
  */
 void EXTI4_15_IRQHandler(void) {
-	static uint8_t x_debouncer = 0;
+	/*static uint8_t x_debouncer = 0;
 	static uint8_t y_debouncer = 0;
     
     x_debouncer = (x_debouncer << 1);
@@ -258,13 +232,12 @@ void EXTI4_15_IRQHandler(void) {
 	
 	if (x_debouncer == 0x7F) {
 		step_stop(X);
-		add_to_queue(5, 5); // step away from buttons by 5mm
 		EXTI->PR |= (1 << X_CAL); // clear flag
 	} 
 	if (y_debouncer == 0x7F) {
 		step_stop(Y);
 		EXTI->PR |= (1 << Y_CAL);
-	}
+	}*/
 }
 
 /* USER CODE END 0 */
@@ -295,6 +268,67 @@ int main(void)
   step_init();
   step_control_init();
   cal_init();
+  calibrate();
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
+  
+  add_to_queue(50, 0);
+  add_to_queue(0, 50);
+  add_to_queue(-50, 0);
+  add_to_queue(0, -50);
   /* USER CODE END 2 */
 
   /* Infinite loop */

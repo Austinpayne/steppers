@@ -3,8 +3,8 @@
 
 // stepper PWM
 #define PRESCALE 50
-#define AUTO_RELOAD 20
-#define DUTY_CYCLE 2
+#define AUTO_RELOAD 10
+#define DUTY_CYCLE 1
 
 // step & gear constants
 #define GEAR_C             30     // approx gear circumference, in mm
@@ -14,8 +14,8 @@
 #define STEPS_PER_REV_FULL 200    // full step
 #define STEPS_PER_REV_16   3200   // 1/16 microstep
 #define STEPS_PER_MM_FULL  7      //  (STEPS_PER_REV_FULL*MICROSTEP)/GEAR_C
-#define STEPS_PER_MM_16    107    // 1/16 microstep
-#define ERR_PER_STEP_16    3      // 1/16 step
+#define STEPS_PER_MM_16    100    // 1/16 microstep
+#define ERR_PER_STEP_16    0      // 1/16 step (1 = No Error)
 // 1 square == ~51mm == ~5457 steps (@ 1/16 microstep)
 
 // axis

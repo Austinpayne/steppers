@@ -32,7 +32,8 @@ void gpio_alternate_init(GPIO_TypeDef * port, uint32_t pin) {
 void gpio_input_init(GPIO_TypeDef * port, uint32_t pin) {
 	gpio_write_reg32(&(port->MODER), pin, 0); // mode (input 00)
 	gpio_write_reg32(&(port->OSPEEDR), pin, 0); // speed (low x0)
-	gpio_write_reg32(&(port->PUPDR), pin, 1); // resistor (pull-up 01)
+	gpio_write_reg16(&(port->OTYPER), pin, 1); // type (open-drain 1)
+	gpio_write_reg32(&(port->PUPDR), pin, 2); // resistor (pull-down 10)
 }
 
 /**
