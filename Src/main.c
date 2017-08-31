@@ -33,26 +33,30 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f0xx_hal.h"
-#include "include/gpio.h"
-#include "include/stepper.h"
-#include "include/queue.h"
 
 /* USER CODE BEGIN Includes */
+#include "include/gpio.h"
+#include "include/stepper.h"
+#include "include/stepper_control.h"
+#include "string.h"
 
+#define UART_PRIORITY 1
+#define CAL_PRIORITY  0
+#define STEP_PRIORITY 1
+
+#define NEXT_TOKEN(d) (strtok(NULL, d))
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
-
+char uart_rx_buffer[256];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
-
-step_queue_t steps;
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -61,6 +65,9 @@ step_queue_t steps;
 
 /* USER CODE BEGIN 0 */
 
+/*
+ *	initialize user button
+ */
 void  button_init(void) {
     // Initialize PA0 for button input
     RCC->AHBENR |= RCC_AHBENR_GPIOAEN;                                          // Enable peripheral clock to GPIOA
@@ -69,15 +76,20 @@ void  button_init(void) {
     GPIOC->PUPDR |= GPIO_PUPDR_PUPDR0_1;                                        // Set to pull-down
 }
 
+/*
+ *	initialize PWM timers for step control
+ */
 void timer_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
 	
+	// for interrupt
 	TIM2->PSC   = PRESCALE;
 	TIM2->ARR   = AUTO_RELOAD;   
-	TIM2->DIER |= TIM_DIER_UIE; // enable timer interrupt
+	TIM2->DIER |= TIM_DIER_UIE;
 	
+	// PWM waveforms for stepper driver DRV8824
 	TIM3->PSC = PRESCALE;	// frequency = (8MHz/PSC/ARR) *approximatly*
 	TIM3->ARR = AUTO_RELOAD;
 	// duty cycle: CCR is % of ARR register (ex. ARR = 10, CCR = 1 => 10% duty cycle)
@@ -85,18 +97,19 @@ void timer_init(void) {
 	TIM3->CCR4 = 0; // PC9
 	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 1
 	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC4M_Pos); // ch 4 capture/compare PWM mode 1
-	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 2
-	//TIM3->CCMR2 |= (7 << TIM_CCMR2_OC4M_Pos); // ch 3 capture/compare PWM mode 2
 	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
 	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
 	
-	NVIC_SetPriority(TIM2_IRQn, 0);
+	NVIC_SetPriority(TIM2_IRQn, STEP_PRIORITY);
 	NVIC_EnableIRQ(TIM2_IRQn);
 	
 	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
 	TIM3->CR1 |= TIM_CR1_CEN;
 }
 
+/*
+ *	initialize PWM output pins
+ */
 void output_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	
@@ -113,6 +126,10 @@ void output_init(void) {
 	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
 }
 
+/*
+ *	initialize calibration switches and 
+ *  set up EXTI interrupts
+ */
 void cal_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	
@@ -123,49 +140,90 @@ void cal_init(void) {
 	gpio_input_init(GPIOC, Y_CAL);
 	
 	// enable cal switch interrupts
-	/*
+	// switches are active low
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
 	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
 	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	EXTI->RTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
+	EXTI->FTSR |= (EXTI_FTSR_FT4 | EXTI_FTSR_FT5); // trigger on falling edge
+	
 	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	NVIC_SetPriority(EXTI4_15_IRQn, 1);
-	*/
+	NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
 	
-	// TODO: move axis until they hit cal switches then clear counters
-	
+	// resets internal step counters in DRV8824
 	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
 	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
 	
+	// step until hit calibration switches
+	add_to_queue(-2000, 0);
+	add_to_queue(0, -2000);	
 }
 
-/* USER CODE END 0 */
+/*
+ *	initialize uart peripheral
+ */
+void uart_init(void) {
+	RCC->AHBENR  |= RCC_AHBENR_GPIOAEN;
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+	// setup uart
+	GPIOA->MODER  |= (2 << GPIO_MODER_MODER9_Pos);  // alternate
+	GPIOA->MODER  |= (2 << GPIO_MODER_MODER10_Pos); // alternate
+	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH1_Pos); // PA9,  USART1_TX
+	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH2_Pos); // PA10, USART1_RX
+	USART1->BRR    = 833; // set baud to 9600 = 8MHz/833
+	USART1->CR1   |= USART_CR1_TE; // enable TX
+	USART1->CR1   |= USART_CR1_RXNEIE; // enable RXNE interrupt
+	USART1->CR1   |= USART_CR1_RE; // enable RX
+	
+	NVIC_SetPriority(USART1_IRQn, UART_PRIORITY);
+	NVIC_EnableIRQ(USART1_IRQn);
+	
+	USART1->CR1   |= USART_CR1_UE; // enable USART1
+}
 
-int main(void)
-{
-	// LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
-	// Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
-	HAL_Init();
-	SystemClock_Config();
+/*
+ *	tx one char to serial
+ */
+void tx_char(char character) {
+	while(1) {
+		if (USART1->ISR & USART_ISR_TXE) {
+			break;
+		}
+	}
+	USART1->TDR = character;
+}
+
+/*
+ *	read in serial data, char by char,
+ *  until finding a move command.
+ */
+void USART1_IRQHandler(void) {
+	static int i = 0;
+	char temp = USART1->RDR;
+	//tx_char(temp); // for usability with serial terminal
 	
-	button_init();
-	timer_init();
-	output_init();
-	cal_init();
-	step_init();
-	
-	init(&steps);
-	add(&steps, 3, -3);
-	add(&steps, -3, 3);
-	add(&steps, 10, -4);
-	add(&steps, -10, 6 );
-	
-	while (1)
-	{
-		__WFI();  
+	// TODO: add more error checking
+	if (temp != 16 && temp != 3) { // ignore control chars that Photon sends
+		if (temp == '\r' || temp == '\n') {
+			uart_rx_buffer[i++] = '\0'; // terminate string
+			// now process
+			char *cmd = strtok(uart_rx_buffer, " ");
+			if (cmd && strcmp(cmd, "move") == 0) {
+				char *coords = NEXT_TOKEN("\n");
+				if (coords && strlen(coords) >= 4) {
+					uci_move(coords);
+				}
+			}
+			i = 0; // clear buffer
+			memset(uart_rx_buffer, 0, sizeof(uart_rx_buffer));
+		} else {
+			uart_rx_buffer[i++] = temp;
+		}
 	}
 }
 
+/*
+ *	for user button (kill switch)
+ */
 void HAL_SYSTICK_Callback(void) {
     static uint32_t debouncer = 0;
     
@@ -175,33 +233,82 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		step_squares(X, 2); // step 30mm, about one rotation using 1/16 microstep
-		step_squares(Y, 4);
+		step_stop(X);
+		step_stop(Y);
+		empty_queue();
     }
     
 }
 
+/*
+ *	calibration switches
+ */
 void EXTI4_15_IRQHandler(void) {
-	if (GPIOC->IDR & (1 << X_CAL)) {
+	static uint8_t x_debouncer = 0;
+	static uint8_t y_debouncer = 0;
+    
+    x_debouncer = (x_debouncer << 1);
+    if (GPIOC->IDR & (1 << X_CAL)) {
+        x_debouncer |= 0x1;
+    }
+	y_debouncer = (y_debouncer << 1);
+    if (GPIOC->IDR & (1 << Y_CAL)) {
+        y_debouncer |= 0x1;
+    }
+	
+	if (x_debouncer == 0x7F) {
 		step_stop(X);
-		EXTI->PR |= EXTI_PR_PIF4;
-	} else if (GPIOC->IDR & (1 << Y_CAL)) {
+		add_to_queue(5, 5); // step away from buttons by 5mm
+		EXTI->PR |= (1 << X_CAL); // clear flag
+	} 
+	if (y_debouncer == 0x7F) {
 		step_stop(Y);
-		EXTI->PR |= EXTI_PR_PIF5;
+		EXTI->PR |= (1 << Y_CAL);
 	}
 }
 
-void TIM2_IRQHandler(void) {
-	// if not stepping, get next step from queue
-	if (!empty(&steps) && get_steps(X) == OFF && get_steps(Y) == OFF) {
-		steps_t next = rm(&steps);
-		step_squares(X, next.x_steps);
-		step_squares(Y, next.y_steps);
-	} else {
-		step();
-	}
-}
+/* USER CODE END 0 */
 
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+  // LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
+  // Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
+  /* USER CODE END 1 */
+
+  /* MCU Configuration----------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* Initialize all configured peripherals */
+
+  /* USER CODE BEGIN 2 */
+  button_init();
+  timer_init();
+  output_init();
+  uart_init();
+  step_init();
+  step_control_init();
+  cal_init();
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+  /* USER CODE END WHILE */
+
+  /* USER CODE BEGIN 3 */
+  __WFI();
+  }
+  /* USER CODE END 3 */
+
+}
 
 /** System Clock Configuration
 */

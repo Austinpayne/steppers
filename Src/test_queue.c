@@ -1,7 +1,7 @@
 #include "include/queue.h"
 #include "unity/src/unity.h"
 
-#define INIT step_queue_t steps; init(&steps)
+#define INIT tuple_queue_t steps; init(&steps)
 
 void test_queue_init(void) {
     INIT;
@@ -9,16 +9,16 @@ void test_queue_init(void) {
     TEST_ASSERT_EQUAL_INT(0, steps.end);
     int i;
     for (i = 0; i < SIZE; i++) {
-        TEST_ASSERT_EQUAL_INT(0, steps.queue[i].x_steps);
-        TEST_ASSERT_EQUAL_INT(0, steps.queue[i].y_steps);
+        TEST_ASSERT_EQUAL_INT(0, steps.queue[i].x);
+        TEST_ASSERT_EQUAL_INT(0, steps.queue[i].y);
     }
 }
 
 void test_queue_add(void) {
     INIT;
     add(&steps, 3, 5);
-    TEST_ASSERT_EQUAL_INT(3, steps.queue[0].x_steps);
-    TEST_ASSERT_EQUAL_INT(5, steps.queue[0].y_steps);
+    TEST_ASSERT_EQUAL_INT(3, steps.queue[0].x);
+    TEST_ASSERT_EQUAL_INT(5, steps.queue[0].y);
     TEST_ASSERT_EQUAL_INT(0, steps.head);
     TEST_ASSERT_EQUAL_INT(1, steps.end);
 }
@@ -26,21 +26,21 @@ void test_queue_add(void) {
 void test_queue_rm(void) {
     INIT;
     add(&steps, 3, 5);
-    steps_t removed = rm(&steps);
-    TEST_ASSERT_EQUAL_INT(3, removed.x_steps);
-    TEST_ASSERT_EQUAL_INT(5, removed.y_steps);
+    tuple_t removed = rm(&steps);
+    TEST_ASSERT_EQUAL_INT(3, removed.x);
+    TEST_ASSERT_EQUAL_INT(5, removed.y);
     TEST_ASSERT_EQUAL_INT(1, steps.head);
     TEST_ASSERT_EQUAL_INT(1, steps.end);
 }
 
 void test_queue_empty(void) {
     INIT;
-    TEST_ASSERT_TRUE(empty(&steps));
+    TEST_ASSERT_TRUE(is_empty(&steps));
 }
 
 void test_queue_not_full(void) {
     INIT;
-    TEST_ASSERT_FALSE(full(&steps));
+    TEST_ASSERT_FALSE(is_full(&steps));
 }
 
 void test_queue_full(void) {
@@ -49,8 +49,8 @@ void test_queue_full(void) {
     for (i = 0; i < SIZE; i++) {
         add(&steps, i+1, i+1);
     }
-    TEST_ASSERT_TRUE(full(&steps));
-    TEST_ASSERT_FALSE(empty(&steps));
+    TEST_ASSERT_TRUE(is_full(&steps));
+    TEST_ASSERT_FALSE(is_empty(&steps));
     TEST_ASSERT_EQUAL_INT(0, steps.head);
     TEST_ASSERT_EQUAL_INT(0, steps.end);
 }
@@ -61,7 +61,7 @@ void test_queue_add_full_fail(void) {
     for (i = 0; i < SIZE; i++) {
         TEST_ASSERT_TRUE(add(&steps, i+1, i+1));
     }
-    TEST_ASSERT_TRUE(full(&steps));
+    TEST_ASSERT_TRUE(is_full(&steps));
     TEST_ASSERT_EQUAL_INT(0, steps.head);
     TEST_ASSERT_EQUAL_INT(0, steps.end);
     TEST_ASSERT_FALSE(add(&steps, 12, 12));
@@ -73,11 +73,11 @@ void test_queue_fill_empty(void) {
     for (i = 0; i < SIZE; i++) {
         TEST_ASSERT_TRUE(add(&steps, i+1, i+1));
     }
-    TEST_ASSERT_TRUE(full(&steps));
-    while(!empty(&steps)) {
+    TEST_ASSERT_TRUE(is_full(&steps));
+    while(!is_empty(&steps)) {
         rm(&steps);
     }
-    TEST_ASSERT_TRUE(empty(&steps));
+    TEST_ASSERT_TRUE(is_empty(&steps));
     TEST_ASSERT_EQUAL_INT(0, steps.head);
     TEST_ASSERT_EQUAL_INT(0, steps.end);
 }
@@ -87,9 +87,9 @@ void test_queue_lock_step_fill_empty(void) {
     int i;
     for (i = 0; i < SIZE; i++) {
         TEST_ASSERT_TRUE_MESSAGE(add(&steps, i+1, i+1), "add failed");
-        steps_t removed = rm(&steps);
-        TEST_ASSERT_EQUAL_INT_MESSAGE(i+1, removed.x_steps, "unexpected x removed");
-        TEST_ASSERT_EQUAL_INT_MESSAGE(i+1, removed.y_steps, "unexpected y removed");
+        tuple_t removed = rm(&steps);
+        TEST_ASSERT_EQUAL_INT_MESSAGE(i+1, removed.x, "unexpected x removed");
+        TEST_ASSERT_EQUAL_INT_MESSAGE(i+1, removed.y, "unexpected y removed");
         if (i != SIZE-1) {
             TEST_ASSERT_EQUAL_INT_MESSAGE(i+1, steps.head, "unexpected head index");
             TEST_ASSERT_EQUAL_INT_MESSAGE(i+1, steps.end, "unexpected end index");
@@ -102,9 +102,9 @@ void test_queue_lock_step_fill_empty(void) {
 
 void test_queue_empty_rm(void) {
     INIT;
-    steps_t removed = rm(&steps);
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, removed.x_steps, "unexpected x removed");
-    TEST_ASSERT_EQUAL_INT_MESSAGE(0, removed.y_steps, "unexpected y removed");
+    tuple_t removed = rm(&steps);
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, removed.x, "unexpected x removed");
+    TEST_ASSERT_EQUAL_INT_MESSAGE(0, removed.y, "unexpected y removed");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, steps.head, "unexpected head index");
     TEST_ASSERT_EQUAL_INT_MESSAGE(0, steps.end, "unexpected end index");
 }

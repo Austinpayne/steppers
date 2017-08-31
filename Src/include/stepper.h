@@ -1,9 +1,12 @@
+#ifndef __STEPPER_H_
+#define __STEPPER_H_
+
 // stepper PWM
 #define PRESCALE 50
 #define AUTO_RELOAD 20
 #define DUTY_CYCLE 2
 
-// stepper  step & gear constants
+// step & gear constants
 #define GEAR_C             30     // approx gear circumference, in mm
 #define STEP_ANGLE         0.0314 // radians, approx 1.8*
 #define GEAR_RADIUS        4.75   // mm
@@ -13,13 +16,14 @@
 #define STEPS_PER_MM_FULL  7      //  (STEPS_PER_REV_FULL*MICROSTEP)/GEAR_C
 #define STEPS_PER_MM_16    107    // 1/16 microstep
 #define ERR_PER_STEP_16    3      // 1/16 step
+// 1 square == ~51mm == ~5457 steps (@ 1/16 microstep)
 
 // axis
 #define X 0
 #define Y 1
 #define OFF -1
-#define CW   0 // direction
-#define CCW  1
+#define CW   0 // + direction
+#define CCW  1 // - direction
 
 // axis pins (GPIOC)
 #define X_DIR   10
@@ -40,17 +44,17 @@
 #define SLEEP(axis) (GPIOC->ODR &= (axis == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
 #define WAKE(axis)  (GPIOC->ODR |= (axis == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
 
-// chess specific
-#define SQUARE_WIDTH 51 // mm
-void step_squares(int axis, int n);
-
 // func definitions
 void step_init(void);
 void step_stop(int axis);
 void step(void);
 void stepn(int axis, int n, int dir);
-void step_mm(int axis, int mm, int dir);
+void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
-int get_steps(int axis);
-int get_pos(int axis);
-int abs(int val);
+int  get_steps(int axis);
+int  get_pos(int axis);
+int  steps_to_mm(int steps);
+int  mm_to_steps(int mm);
+int  abs(int val);
+
+#endif /* __STEPPER_H_ */

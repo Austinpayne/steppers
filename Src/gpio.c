@@ -12,6 +12,11 @@ void gpio_output_init(GPIO_TypeDef * port, uint32_t pin) {
 	gpio_write_reg32(&(port->PUPDR), pin, 0); // resistor (none 00)
 }
 
+/**
+ *	Initializes the specified GPIO port and pin to be 
+ *	an alternate type pin with the following settings:
+ *		- push-pull output, low speed, no pull-up/down resistor
+ */
 void gpio_alternate_init(GPIO_TypeDef * port, uint32_t pin) {
 	gpio_write_reg32(&(port->MODER), pin, 2); // mode (alternate 10)
 	gpio_write_reg16(&(port->OTYPER), pin, 0); // type (push-pull 0)

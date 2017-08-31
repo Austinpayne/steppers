@@ -60,18 +60,21 @@ dkms.conf
 *.uvguix*
 *.uvoptx*
 *.uvoprojx
-*.uvprojx
 *.crf
 *.axf
 *.htm
 *.dep
-*.ioc
 *.mxproject
 RTE/
 *.lnp
 *.sct
 *.lst
 *.s
+Drivers/
+
+# kiel debugger files
+*.scvd
+*.iex
 
 # unit testing
 unity/
