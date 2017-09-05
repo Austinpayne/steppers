@@ -15,8 +15,8 @@ void step_control_init(void) {
 /*
  *	wrapper for accessing steps queue
  */
-void add_to_queue(int x, int y) {
-	add(&steps, x, y);
+void add_to_queue(int x, int y, char magnet_on) {
+	add(&steps, x, y, magnet_on);
 }
 
 /*
@@ -43,7 +43,7 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 int x_squares = dest_x - x;
 	 int y_squares = dest_y - y;
 	 
-	// for offsetting onto/off line
+	 // for offsetting onto/off line
 	 if (x_squares > 0) { // +x direction
 		 x_squares--;
 		 x_offset = 1;
@@ -62,12 +62,14 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 
 	 int x_mm = SQUARES_TO_MM(x_squares);
 	 int y_mm = SQUARES_TO_MM(y_squares);
-	 
-	 add_to_queue(x_align, y_align); // goto src
-	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset)); // stagger onto line
-	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
-	 add_to_queue(0, y_mm);
-	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset)); // stagger off line
+	
+     // need a method to indicate magnet on/off when adding/removing from queue
+     // maybe add third tuple element (magnet on/off during move?) 
+	 add_to_queue(x_align, y_align, MAGNET_OFF_OFF); // goto src
+	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), MAGNET_ON_ON); // move piece onto line
+	 add_to_queue(x_mm, 0, MAGNET_ON_ON); // move to dest, taxi-cab style
+	 add_to_queue(0, y_mm, MAGNET_ON_ON);
+	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), MAGNET_ON_OFF); // stagger off line
 	 
 	 // turn off electromagnet (after move)
 }
@@ -149,10 +151,22 @@ int uci_move(const char *move) {
  */
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
-	if (!is_empty(&steps) && get_steps(X) == OFF && get_steps(Y) == OFF) {
+	if (!is_empty(&steps) && !stepping(X) && !stepping(Y)) {
 		tuple_t next = rm(&steps);
+/*
+        if (next.magnet_bitmap & MAGNET_START_ON)
+            // turn on magnet
+        else
+            // turn off magnet
+*/
 		step_mm(X, next.x);
 		step_mm(Y, next.y);
+/*
+        if (next.magnet_bitmap & MAGNET_END_ON)
+            // turn on magnet
+        else
+            // turn off magnet
+*/
 	} else {
 		step();
 	}

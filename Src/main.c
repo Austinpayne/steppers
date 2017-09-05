@@ -156,20 +156,20 @@ void cal_init(void) {
 void calibrate(void) {
 	// step until hit calibration switches
 		
-	add_to_queue(-2000, 0);
+	add_to_queue(-2000, 0, MAGNET_OFF_OFF);
 	
 	while (!(GPIOC->IDR & (1 << X_CAL))) {
 		// wait until x interrupt
 		// do something at timeout
     }
 	step_stop(X);
-	add_to_queue(3, -2000);
+	add_to_queue(3, -2000, MAGNET_OFF_OFF);
 	
 	while (!(GPIOC->IDR & (1 << Y_CAL))) {
 		// wait until y interrupt
     }
 	step_stop(Y);
-	add_to_queue(0, 3);
+	add_to_queue(0, 3, MAGNET_OFF_OFF);
 }
 
 /*
@@ -269,66 +269,15 @@ int main(void)
   cal_init();
   calibrate();
   step_init();
+
+  int i;
+  for (i=0; i < 10; i++) {
+	add_to_queue(50, 0, MAGNET_OFF_OFF);
+	add_to_queue(0, 50, MAGNET_OFF_OFF);
+	add_to_queue(-50, 0, MAGNET_OFF_OFF);
+	add_to_queue(0, -50, MAGNET_OFF_OFF);
+  }
   
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
-  
-  add_to_queue(50, 0);
-  add_to_queue(0, 50);
-  add_to_queue(-50, 0);
-  add_to_queue(0, -50);
   /* USER CODE END 2 */
 
   /* Infinite loop */

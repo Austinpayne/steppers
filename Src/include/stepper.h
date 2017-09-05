@@ -44,6 +44,7 @@
 #define SLEEP(axis)     (GPIOC->ODR &= (axis == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
 #define WAKE(axis)      (GPIOC->ODR |= (axis == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
 #define MM_TO_STEPS(mm) ((mm)*STEPS_PER_MM_16)
+#define STEPS_TO_MM(s)  ((s)/STEPS_PER_MM_16)
 
 // func definitions
 void step_init(void);
@@ -52,7 +53,7 @@ void step(void);
 void stepn(int axis, int n, int dir);
 void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
-int  get_steps(int axis);
+int  stepping(int axis);
 int  get_pos(int axis);
 int  abs(int val);
 

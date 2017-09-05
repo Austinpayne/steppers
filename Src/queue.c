@@ -19,19 +19,21 @@ void init(tuple_queue_t *q) {
 	for (i = 0; i < SIZE; i++) {
 		q->queue[i].x = 0;
 		q->queue[i].y = 0;
+		q->queue[i].magnet_bitmap = 0;
 	}
 }
  
 /*
  *	add tuple (x, y) to end of queue 
  */
-int add(tuple_queue_t *q, int x, int y) {
+int add(tuple_queue_t *q, int x, int y, char magnet_bitmap) {
 	if(!is_full(q) && ( // queue not full and
 		 (x != 0 && y != 0) || // x,y are both non-zero
 		 (x == 0 && y != 0) || // or x is zero but y is non-zero
 		 (x !=0  && y ==0))) { // or x is non-zero by y is zero
 		 q->queue[q->end].x = x;
 		 q->queue[q->end].y = y;
+		 q->queue[q->end].magnet_bitmap = magnet_bitmap;
 		 q->end++;
 		 
 		 if (q->end == SIZE) { // wrap
@@ -53,6 +55,7 @@ tuple_t rm(tuple_queue_t *q) {
 		current = q->queue[q->head];
 		q->queue[q->head].x = 0;
 		q->queue[q->head].y = 0;
+		q->queue[q->head].magnet_bitmap = 0;
 		q->head++;
 		
 		if (q->head == SIZE) { // wrap

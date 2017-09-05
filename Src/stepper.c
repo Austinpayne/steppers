@@ -11,6 +11,7 @@ static int y_dir;
 
 /*
  *	initialize step counters and position
+ *  call this to clear position after calibration
  */
 void step_init(void) {
 	step_stop(X);
@@ -126,15 +127,18 @@ void set_dir(int axis, int dir) {
 /*
  *	get current axis steps
  */
-int get_steps(int axis) {
-	return (axis == X ? x_step : y_step);
+int stepping(int axis) {
+    if (axis == X)
+	    return (x_step == OFF ? 0 : 1);
+    else if (axis == Y)
+	    return (y_step == OFF ? 0 : 1);
 }
 
 /*
  *	return current axis position, in mm
  */
 int get_pos(int axis) {
-	return (axis == X ? steps_to_mm(x_pos) : steps_to_mm(y_pos));
+	return (axis == X ? STEPS_TO_MM(x_pos) : STEPS_TO_MM(y_pos));
 }
 
 /*
