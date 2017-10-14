@@ -13,7 +13,7 @@ static int y_dir;
  *	initialize step counters and position
  *  call this to clear position after calibration
  */
-void step_init(void) {
+void step_reset(void) {
 	step_stop(X);
 	step_stop(Y);
 	x_step = 0;
@@ -50,14 +50,14 @@ void step(void) {
 	if (x_step > 0) {
 		x_step--;
 		x_pos += x_dir;
-	} else if (x_step == 0) {
+	} else if (x_step <= 0) {
 		step_stop(X);
-	} 
+	}
 	
 	if (y_step > 0) {
 		y_step--;
 		y_pos += y_dir;
-	} else if (y_step == 0){
+	} else if (y_step <= 0) {
 		step_stop(Y);
 	}
 	TIM2->SR &= ~(TIM_SR_UIF);
@@ -130,7 +130,7 @@ void set_dir(int axis, int dir) {
 int stepping(int axis) {
     if (axis == X)
 	    return (x_step == OFF ? 0 : 1);
-    else if (axis == Y)
+    else
 	    return (y_step == OFF ? 0 : 1);
 }
 

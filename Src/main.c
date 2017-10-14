@@ -114,6 +114,7 @@ void output_init(void) {
 	
 	gpio_output_init(GPIOC, X_DIR); // PC0 (x-axis dir)
 	gpio_output_init(GPIOC, Y_DIR); // PC1 (y-axis dir)
+	gpio_output_init(GPIOC, MAGNET_PIN); // PC1
 	
 	gpio_output_init(GPIOC, X_SLEEP); // PC6 (x-axis sleep)
 	gpio_output_init(GPIOC, Y_SLEEP); // PC7 (y-axis sleep)
@@ -129,7 +130,7 @@ void output_init(void) {
  *	initialize calibration switches and 
  *  set up EXTI interrupts
  */
-void cal_init(void) {
+void cal_switches_init(void) {
 	RCC->AHBENR  |= RCC_AHBENR_GPIOCEN;
 	
 	gpio_output_init(GPIOC, X_RESET); // PC2 (x-axis reset)
@@ -138,38 +139,42 @@ void cal_init(void) {
 	gpio_input_init(GPIOC, X_CAL);
 	gpio_input_init(GPIOC, Y_CAL);
 	
-	// enable cal switch interrupts
-	// switches are active low
-	//SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
-	//SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
-	//EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	//EXTI->FTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
-	
-	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
-	
 	// resets internal step counters in DRV8824
 	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
 	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
 }
 
+void cal_interrupt_init(void) {
+	cal_switches_init();
+	// enable cal switch interrupts
+	// switches are active low
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
+	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
+	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
+	EXTI->FTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
+	
+	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
+	NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
+}
+
 void calibrate(void) {
 	// step until hit calibration switches
 		
-	add_to_queue(-2000, 0, MAGNET_OFF_OFF);
+	add_to_queue(-2000, 0, 0);
 	
 	while (!(GPIOC->IDR & (1 << X_CAL))) {
 		// wait until x interrupt
 		// do something at timeout
     }
 	step_stop(X);
-	add_to_queue(3, -2000, MAGNET_OFF_OFF);
+	add_to_queue(SQUARE_HALF_WIDTH, -2000, 0);
 	
 	while (!(GPIOC->IDR & (1 << Y_CAL))) {
 		// wait until y interrupt
     }
 	step_stop(Y);
-	add_to_queue(0, 3, MAGNET_OFF_OFF);
+	add_to_queue(0, SQUARE_HALF_WIDTH, 0);
+	HAL_Delay(1000);
 }
 
 /*
@@ -217,7 +222,7 @@ void HAL_SYSTICK_Callback(void) {
  *	calibration switches
  */
 void EXTI4_15_IRQHandler(void) {
-	/*static uint8_t x_debouncer = 0;
+	static uint8_t x_debouncer = 0;
 	static uint8_t y_debouncer = 0;
     
     x_debouncer = (x_debouncer << 1);
@@ -230,13 +235,19 @@ void EXTI4_15_IRQHandler(void) {
     }
 	
 	if (x_debouncer == 0x7F) {
+		x_debouncer = 0;
 		step_stop(X);
+		empty_queue();
+		add_to_queue(SQUARE_HALF_WIDTH, 0, 0);
 		EXTI->PR |= (1 << X_CAL); // clear flag
 	} 
 	if (y_debouncer == 0x7F) {
+		y_debouncer = 0;
 		step_stop(Y);
+		empty_queue();
+		add_to_queue(0, SQUARE_HALF_WIDTH, 0);
 		EXTI->PR |= (1 << Y_CAL);
-	}*/
+	}
 }
 
 /* USER CODE END 0 */
@@ -263,21 +274,22 @@ int main(void)
   button_init();
   timer_init();
   output_init();
-  uart_init();
-  step_init();
   step_control_init();
-  cal_init();
+  cal_switches_init();
   calibrate();
-  step_init();
+  step_reset(); // set beginning position
+  cal_interrupt_init();
+  uart_init(); // enable after cal to prevent extraneous moves
+  MAGNET_ON;
 
   int i;
   for (i=0; i < 10; i++) {
-	add_to_queue(50, 0, MAGNET_OFF_OFF);
-	add_to_queue(0, 50, MAGNET_OFF_OFF);
-	add_to_queue(-50, 0, MAGNET_OFF_OFF);
-	add_to_queue(0, -50, MAGNET_OFF_OFF);
+	add_to_queue(50, 0, 1);
+	add_to_queue(0, 50, 1);
+	add_to_queue(-50, 0, 1);
+	add_to_queue(0, -50, 1);
   }
-  
+ 
   /* USER CODE END 2 */
 
   /* Infinite loop */

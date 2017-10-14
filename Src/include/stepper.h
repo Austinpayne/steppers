@@ -2,8 +2,9 @@
 #define __STEPPER_H_
 
 // stepper PWM
+// frequency = (8MHz/PSC/ARR) *approximatly*
 #define PRESCALE 50
-#define AUTO_RELOAD 10
+#define AUTO_RELOAD 20
 #define DUTY_CYCLE 1
 
 // step & gear constants
@@ -28,7 +29,7 @@
 // axis pins (GPIOC)
 #define X_DIR   10
 #define X_RESET 12
-#define X_CAL   4 // input
+#define X_CAL   4 // input 
 #define X_SLEEP 6
 #define X_STEP  8
 #define X_PWM   TIM3->CCR3
@@ -47,7 +48,7 @@
 #define STEPS_TO_MM(s)  ((s)/STEPS_PER_MM_16)
 
 // func definitions
-void step_init(void);
+void step_reset(void);
 void step_stop(int axis);
 void step(void);
 void stepn(int axis, int n, int dir);

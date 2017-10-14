@@ -36,14 +36,17 @@ void rx_move(void) {
 	char temp = USART1->RDR;
 	
 	if (i < 4) {
-		uart_rx_buffer[i++] = temp;
-	} else {
-		uart_rx_buffer[i++] = '\0';
-		add_to_queue(50, 0, MAGNET_OFF_OFF);
-		add_to_queue(0, 50, MAGNET_OFF_OFF);
-		add_to_queue(-50, 0, MAGNET_OFF_OFF);
-		add_to_queue(0, -50, MAGNET_OFF_OFF);
-		//uci_move(uart_rx_buffer);
+		uart_rx_buffer[i] = temp;
+		i++;
+	}
+	
+	if (i == 4) {
+		uart_rx_buffer[i] = '\0';
+		//add_to_queue(50, 0, MAGNET_OFF_OFF);
+		//add_to_queue(0, 50, MAGNET_OFF_OFF);
+		//add_to_queue(-50, 0, MAGNET_OFF_OFF);
+		//add_to_queue(0, -50, MAGNET_OFF_OFF);
+		uci_move(uart_rx_buffer);
 		i = 0;
 		memset(uart_rx_buffer, 0, sizeof(uart_rx_buffer));
 	}
