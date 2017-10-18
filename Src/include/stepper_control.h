@@ -2,8 +2,8 @@
 #define __STEPPER_CTRL_H_
 
 // chess board constants
-#define SQUARE_WIDTH 78 // mm
-#define SQUARE_HALF_WIDTH 39 // mm
+#define SQUARE_WIDTH 64 // mm
+#define SQUARE_HALF_WIDTH 32 // mm
 
 // macros
 #define SQUARES_TO_MM(squares)     (SQUARE_WIDTH*squares)
