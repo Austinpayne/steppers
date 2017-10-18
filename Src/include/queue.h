@@ -12,8 +12,8 @@ typedef struct {
 
 // queue of steps
 typedef struct {
-	int head;
-	int end;
+	tuple_t *head;
+	tuple_t *end;
 	tuple_t queue[SIZE];
 } tuple_queue_t;
 
