@@ -34,7 +34,7 @@ int add(tuple_queue_t *q, int x, int y, char magnet_bitmap) {
 		 q->end->y = y;
 		 q->end->magnet_bitmap = magnet_bitmap;
 
-		 q->end = (q->end == &(q->queue[SIZE-1])) ? q->queue : q->end+1;
+		 INCREMENT(q, end);
 		 
 		 return 1;
 	 } else {
@@ -53,7 +53,7 @@ tuple_t rm(tuple_queue_t *q) {
 		q->head->y = 0;
 		q->head->magnet_bitmap = 0;
 
-		q->head = (q->head == &(q->queue[SIZE-1])) ? q->queue : q->head+1;
+		INCREMENT(q, head);
 	} 
 	return current;
 }
