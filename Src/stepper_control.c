@@ -2,30 +2,36 @@
 #include "include/stepper_control.h"
 #include "include/queue.h"
 #include "include/gpio.h"
+#include "include/uart.h"
 #include "string.h"
 
 tuple_queue_t steps; // in mm (makes stepping half squares more accurate)
+tuple_t current; // current step tuple
 
-/*
- *	inialize steps queue
- */
-void step_control_init(void) {
-	init(&steps);
-}
+/* wrapper for inializing steps queue */
+void step_control_init(void) {init(&steps);}
+/* wrapper for accessing steps queue */
+void add_to_queue(int x, int y) {add(&steps, x, y, NULL);}
+/* wrapper for accessing steps queue */
+void add_to_queue_d(int x, int y, done_func d) {add(&steps, x, y, d);}
+/* wrapper for clearing steps queue */
+void empty_queue(void) {clear_queue(&steps);}
 
-/*
- *	wrapper for accessing steps queue
- */
-void add_to_queue(int x, int y, char magnet_on) {
-	add(&steps, x, y, magnet_on);
-}
+int mag_on(void) {
+	MAGNET_ON;
+	return 0;
+} done_func magnet_on = mag_on;
 
-/*
- *	wrapper for clearing steps queue
- */
-void empty_queue(void) {
-	clear_queue(&steps);
-}
+int mag_off(void) {
+	MAGNET_OFF;
+	return 0;
+} done_func magnet_off = mag_off;
+
+int mag_off_move_done(void) {
+	MAGNET_OFF;
+	tx_char('0');
+	return 0;
+} done_func move_done = mag_off_move_done;
 
 /*
  *  move chess piece at x,y to dest_x, dest_y
@@ -64,13 +70,11 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 int x_mm = SQUARES_TO_MM(x_squares);
 	 int y_mm = SQUARES_TO_MM(y_squares);
 	
-     // need a method to indicate magnet on/off when adding/removing from queue
-     // maybe add third tuple element (magnet on/off during move?) 
-	 add_to_queue(x_align, y_align, 0); // goto src
-	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), 1); // move piece onto line
-	 add_to_queue(x_mm, 0, 1); // move to dest, taxi-cab style
-	 add_to_queue(0, y_mm, 1);
-	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), 1); // stagger off line
+	 add_to_queue(x_align, y_align); // goto src
+	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), magnet_on); // move piece onto line
+	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
+	 add_to_queue(0, y_mm);
+	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), move_done); // stagger off line
 }
 
 #define SET_COORDS(sx, sy, dx, dy) \
@@ -151,15 +155,13 @@ int uci_move(const char *move) {
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
 	if (!is_empty(&steps) && !stepping(X) && !stepping(Y)) {
-		tuple_t next = rm(&steps);
+		if (current.done) { // run done function
+			current.done();
+		}
+		current = rm(&steps);
 		
-        if (next.magnet_bitmap)
-            MAGNET_ON;
-        else
-            MAGNET_OFF;
-		
-		step_mm(X, next.x);
-		step_mm(Y, next.y);
+		step_mm(X, current.x);
+		step_mm(Y, current.y);
 	} else {
 		step();
 	}

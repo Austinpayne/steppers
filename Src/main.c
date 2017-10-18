@@ -160,20 +160,20 @@ void cal_interrupt_init(void) {
 void calibrate(void) {
 	// step until hit calibration switches
 		
-	add_to_queue(-2000, 0, 0);
+	add_to_queue(-2000, 0);
 	
 	while (!(GPIOC->IDR & (1 << X_CAL))) {
 		// wait until x interrupt
 		// do something at timeout
     }
 	step_stop(X);
-	add_to_queue(SQUARE_HALF_WIDTH, -2000, 0);
+	add_to_queue(SQUARE_HALF_WIDTH, -2000);
 	
 	while (!(GPIOC->IDR & (1 << Y_CAL))) {
 		// wait until y interrupt
     }
 	step_stop(Y);
-	add_to_queue(0, SQUARE_HALF_WIDTH, 0);
+	add_to_queue(0, SQUARE_HALF_WIDTH);
 	HAL_Delay(1000);
 }
 
@@ -238,14 +238,14 @@ void EXTI4_15_IRQHandler(void) {
 		x_debouncer = 0;
 		step_stop(X);
 		empty_queue();
-		add_to_queue(SQUARE_HALF_WIDTH, 0, 0);
+		add_to_queue(SQUARE_HALF_WIDTH, 0);
 		EXTI->PR |= (1 << X_CAL); // clear flag
 	} 
 	if (y_debouncer == 0x7F) {
 		y_debouncer = 0;
 		step_stop(Y);
 		empty_queue();
-		add_to_queue(0, SQUARE_HALF_WIDTH, 0);
+		add_to_queue(0, SQUARE_HALF_WIDTH);
 		EXTI->PR |= (1 << Y_CAL);
 	}
 }
@@ -280,14 +280,13 @@ int main(void)
   step_reset(); // set beginning position
   cal_interrupt_init();
   uart_init(); // enable after cal to prevent extraneous moves
-  MAGNET_ON;
 
   int i;
   for (i=0; i < 10; i++) {
-	add_to_queue(50, 0, 1);
-	add_to_queue(0, 50, 1);
-	add_to_queue(-50, 0, 1);
-	add_to_queue(0, -50, 1);
+	add_to_queue_d(50, 0, magnet_on);
+	add_to_queue(0, 50);
+	add_to_queue(-50, 0);
+	add_to_queue(0, -50);
   }
  
   /* USER CODE END 2 */
