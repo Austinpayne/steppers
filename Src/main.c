@@ -44,6 +44,8 @@
 #define CAL_PRIORITY  0
 #define STEP_PRIORITY 1
 
+unsigned char calibrating = 1;
+
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
@@ -153,8 +155,8 @@ void cal_interrupt_init(void) {
 	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
 	EXTI->FTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
 	
-	NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
+	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
+	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
 }
 
 void calibrate(void) {
@@ -166,15 +168,16 @@ void calibrate(void) {
 		// wait until x interrupt
 		// do something at timeout
     }
-	step_stop(X);
+	stop_axis(X);
 	add_to_queue(SQUARE_HALF_WIDTH, -2000);
 	
 	while (!(GPIOC->IDR & (1 << Y_CAL))) {
 		// wait until y interrupt
     }
-	step_stop(Y);
+	stop_axis(Y);
 	add_to_queue(0, SQUARE_HALF_WIDTH);
 	HAL_Delay(1000);
+	calibrating = 0;
 }
 
 /*
@@ -204,6 +207,8 @@ void uart_init(void) {
  */
 void HAL_SYSTICK_Callback(void) {
     static uint32_t debouncer = 0;
+	static uint32_t x_debouncer = 0;
+	static uint32_t y_debouncer = 0;
     
     debouncer = (debouncer << 1);
     if(GPIOA->IDR & (1 << 0)) {
@@ -211,15 +216,43 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		step_stop(X);
-		step_stop(Y);
+		stop_stepping();
 		empty_queue();
     }
+	
+	if (!calibrating) {
+		if (axis_stepping(X)) {
+			x_debouncer = (x_debouncer << 1);
+			if (GPIOC->IDR & (1 << X_CAL)) {
+				x_debouncer |= 0x1;
+			}
+			if (x_debouncer == 0x7FFFFFFF) {
+				x_debouncer = 0;
+				stop_stepping();
+				empty_queue();
+				add_to_queue(SQUARE_HALF_WIDTH, 0);
+			}
+		}
+		
+		if (axis_stepping(Y)) {
+			y_debouncer = (y_debouncer << 1);
+			if (GPIOC->IDR & (1 << Y_CAL)) {
+				y_debouncer |= 0x1;
+			}
+			if (y_debouncer == 0x7FFFFFFF) {
+				y_debouncer = 0;
+				stop_stepping();
+				empty_queue();
+				add_to_queue(0, SQUARE_HALF_WIDTH);
+			}
+		}
+	}
     
 }
 
 /*
  *	calibration switches
+ *  (broken, for some reason needs two clicks)
  */
 void EXTI4_15_IRQHandler(void) {
 	static uint8_t x_debouncer = 0;
@@ -227,27 +260,30 @@ void EXTI4_15_IRQHandler(void) {
     
     x_debouncer = (x_debouncer << 1);
     if (GPIOC->IDR & (1 << X_CAL)) {
-        x_debouncer |= 0x1;
+		stop_stepping();
+        //x_debouncer |= 0x1;
     }
 	y_debouncer = (y_debouncer << 1);
     if (GPIOC->IDR & (1 << Y_CAL)) {
-        y_debouncer |= 0x1;
+		stop_stepping();
+        //y_debouncer |= 0x1;
     }
 	
+	/*
 	if (x_debouncer == 0x7F) {
-		x_debouncer = 0;
-		step_stop(X);
+		//x_debouncer = 0;
+		stop_stepping();
 		empty_queue();
-		add_to_queue(SQUARE_HALF_WIDTH, 0);
+		//sadd_to_queue(SQUARE_HALF_WIDTH, 0);
 		EXTI->PR |= (1 << X_CAL); // clear flag
 	} 
 	if (y_debouncer == 0x7F) {
-		y_debouncer = 0;
-		step_stop(Y);
+		//y_debouncer = 0;
+		stop_stepping();
 		empty_queue();
-		add_to_queue(0, SQUARE_HALF_WIDTH);
+		//add_to_queue(0, SQUARE_HALF_WIDTH);
 		EXTI->PR |= (1 << Y_CAL);
-	}
+	}*/
 }
 
 /* USER CODE END 0 */

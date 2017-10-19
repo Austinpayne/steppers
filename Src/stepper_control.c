@@ -154,7 +154,7 @@ int uci_move(const char *move) {
  */
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
-	if (!is_empty(&steps) && !stepping(X) && !stepping(Y)) {
+	if (!is_empty(&steps) && !stepping()) {
 		if (current.done) { // run done function
 			current.done();
 		}

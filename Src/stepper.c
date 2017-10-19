@@ -14,8 +14,7 @@ static int y_dir;
  *  call this to clear position after calibration
  */
 void step_reset(void) {
-	step_stop(X);
-	step_stop(Y);
+	stop_stepping();
 	x_step = 0;
 	y_step = 0;
 	x_pos = 0;
@@ -28,7 +27,7 @@ void step_reset(void) {
  *	stops the axis by turning off axis PWM,
  *  and putting the motor driver into sleep mode
  */
-void step_stop(int axis) {
+void stop_axis(int axis) {
 	if (axis == X) {
 		x_step = OFF;
 		//set_dir(X, 0);
@@ -42,6 +41,11 @@ void step_stop(int axis) {
 	}
 }
 
+void stop_stepping(void) {
+	stop_axis(X);
+	stop_axis(Y);
+}
+
 /*
  *	decrements step by one, when
  *  steps == 0, stops stepping
@@ -51,14 +55,14 @@ void step(void) {
 		x_step--;
 		x_pos += x_dir;
 	} else if (x_step <= 0) {
-		step_stop(X);
+		stop_axis(X);
 	}
 	
 	if (y_step > 0) {
 		y_step--;
 		y_pos += y_dir;
 	} else if (y_step <= 0) {
-		step_stop(Y);
+		stop_axis(Y);
 	}
 	TIM2->SR &= ~(TIM_SR_UIF);
 }
@@ -127,11 +131,17 @@ void set_dir(int axis, int dir) {
 /*
  *	get current axis steps
  */
-int stepping(int axis) {
+int axis_stepping(int axis) {
     if (axis == X)
 	    return (x_step == OFF ? 0 : 1);
     else
 	    return (y_step == OFF ? 0 : 1);
+}
+
+unsigned char stepping(void) {
+	if (axis_stepping(X) || axis_stepping(Y))
+		return 1;
+	return 0;
 }
 
 /*

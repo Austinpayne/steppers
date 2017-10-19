@@ -49,12 +49,14 @@
 
 // func definitions
 void step_reset(void);
-void step_stop(int axis);
+void stop_axis(int axis);
+void stop_stepping(void);
 void step(void);
 void stepn(int axis, int n, int dir);
 void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
-int  stepping(int axis);
+int  axis_stepping(int axis);
+unsigned char stepping(void);
 int  get_pos(int axis);
 int  abs(int val);
 
