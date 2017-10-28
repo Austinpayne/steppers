@@ -126,6 +126,6 @@ void rx_more(void) {
  *		'Xd3xd7' = X captures piece on d7
  *		'exd6' = en passant (only indicate pawns file of depature and dest square)
  */
-void USART1_IRQHandler(void) {
-	rx_move();
-}
+//void USART1_IRQHandler(void) {
+//	rx_move();
+//}

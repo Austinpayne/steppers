@@ -44,12 +44,18 @@
 #define UART_PRIORITY 1
 #define CAL_PRIORITY  0
 #define STEP_PRIORITY 1
+#define SERIAL_BUFF_SIZE 64
+#define SERIAL_READ rx_char
 
 unsigned char calibrating = 1;
+char rx_char;
+char rx_buffer[SERIAL_BUFF_SIZE];
+int irx = 0;
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -59,10 +65,44 @@ unsigned char calibrating = 1;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
+static void MX_GPIO_Init(void);
+static void MX_USART1_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
+#ifdef __GNUC__
+  #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+  #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif /* __GNUC__ */
 
+// Retargets the C library printf function to the USART
+PUTCHAR_PROTOTYPE {
+    HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 100);
+    return ch;
+}
+
+void rx_serial_command() {
+    if (irx < SERIAL_BUFF_SIZE) {
+        char c = SERIAL_READ;
+        if (c == '\r' || c == '\n') {
+            rx_buffer[irx] = '\0';
+            printf("%s", rx_buffer);
+            memset(rx_buffer, 0, SERIAL_BUFF_SIZE);
+            irx = 0;
+        } else {
+            rx_buffer[irx] = c;
+            irx++;
+        }
+    }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == USART1) {
+        HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
+	}
+}
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
@@ -311,6 +351,8 @@ int main(void)
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART1_UART_Init();
 
   /* USER CODE BEGIN 2 */
   button_init();
@@ -321,7 +363,8 @@ int main(void)
   calibrate();
   step_reset(); // set beginning position
   cal_interrupt_init();
-  uart_init(); // enable after cal to prevent extraneous moves
+  
+  HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
 
   /*int i;
   for (i=0; i < 10; i++) {
@@ -338,7 +381,7 @@ int main(void)
   while (1)
   {
   /* USER CODE END WHILE */
-
+	  printf("%s\n", "Hello World!");
   /* USER CODE BEGIN 3 */
   __WFI();
   }
@@ -353,6 +396,7 @@ void SystemClock_Config(void)
 
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
+  RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
@@ -378,6 +422,13 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
+  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
     /**Configure the Systick interrupt time 
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
@@ -388,6 +439,37 @@ void SystemClock_Config(void)
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+}
+
+/* USART1 init function */
+static void MX_USART1_UART_Init(void)
+{
+
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 9600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/** Pinout Configuration
+*/
+static void MX_GPIO_Init(void)
+{
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+
 }
 
 /* USER CODE BEGIN 4 */
