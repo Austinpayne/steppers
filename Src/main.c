@@ -3,6 +3,11 @@
   * File Name          : main.c
   * Description        : Main program body
   ******************************************************************************
+  ** This notice applies to any and all portions of this file
+  * that are not between comment pairs USER CODE BEGIN and
+  * USER CODE END. Other portions of this file, whether 
+  * inserted by the user or by software development tools
+  * are owned by their respective copyright owners.
   *
   * COPYRIGHT(c) 2017 STMicroelectronics
   *
@@ -35,16 +40,15 @@
 #include "stm32f7xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include "include/gpio.h"
-#include "include/stepper.h"
-#include "include/stepper_control.h"
-#include "string.h"
 
 #define UART_PRIORITY 1
 #define CAL_PRIORITY  0
 #define STEP_PRIORITY 1
 
 unsigned char calibrating = 1;
+static void MX_GPIO_Init(void);
+extern uint16_t biases[64][64];
+
 
 /* USER CODE END Includes */
 
@@ -57,7 +61,6 @@ unsigned char calibrating = 1;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void Error_Handler(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -66,157 +69,20 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN 0 */
 
-/*
- *	initialize user button
- */
-void  button_init(void) {
-    // Initialize PA0 for button input
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;                                          // Enable peripheral clock to GPIOA
-    GPIOA->MODER &= ~(GPIO_MODER_MODER0_0 | GPIO_MODER_MODER0_1);               // Set PA0 to input
-    GPIOC->OSPEEDR &= ~(GPIO_OSPEEDER_OSPEEDR0_0 | GPIO_OSPEEDER_OSPEEDR0_1);     // Set to low speed
-    GPIOC->PUPDR |= GPIO_PUPDR_PUPDR0_1;                                        // Set to pull-down
-}
-
-/*
- *	initialize PWM timers for step control
- */
-void timer_init(void) {
-	RCC->AHB1ENR  |= RCC_AHB1ENR_GPIOCEN;
-	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
-	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
-	
-	//Analog Code initialization -------------------------------------------------
-	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
-	//PB10 -ADC PB15 are used for data select lines for MUX
-	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+void uart_init(void){
+	// PA9 (TX) & PA10 (RX)
+	//connects clocks to usart
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN; 
 	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 	
-	//configure GPIO 10-15 to general purpose output mode 
-	GPIOB->MODER |= GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0;
-	GPIOB->MODER |= GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
-	GPIOB->MODER |= GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0;
+	//AF Mode
+	GPIOA->MODER |= (2 << GPIO_MODER_MODER9_Pos);
+	GPIOA->MODER |= (2 << GPIO_MODER_MODER10_Pos);
 	
-	//enable alternate function mode for USART, with pull up resistor and open drain
-	GPIOB->MODER |= GPIO_MODER_MODER6_1 | GPIO_MODER_MODER7_1;
-	GPIOB->OTYPER |= GPIO_OTYPER_OT_6;
-	GPIOB->PUPDR |= GPIO_PUPDR_PUPDR6_0;
-	
-	//enable clock for ADC
-	
-	
-	
-	
-	
-
-	
-	// for interrupt
-	TIM2->PSC   = PRESCALE;
-	TIM2->ARR   = AUTO_RELOAD;   
-	TIM2->DIER |= TIM_DIER_UIE;
-	
-	// PWM waveforms for stepper driver DRV8824
-	TIM3->PSC = PRESCALE;	// frequency = (8MHz/PSC/ARR) *approximatly*
-	TIM3->ARR = AUTO_RELOAD;
-	// duty cycle: CCR is % of ARR register (ex. ARR = 10, CCR = 1 => 10% duty cycle)
-	TIM3->CCR3 = 0; // PC8
-	TIM3->CCR4 = 0; // PC9
-	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC3M_Pos); // ch 3 capture/compare PWM mode 1
-	TIM3->CCMR2 |= (6 << TIM_CCMR2_OC4M_Pos); // ch 4 capture/compare PWM mode 1
-	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
-	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
-	
-	NVIC_SetPriority(TIM2_IRQn, STEP_PRIORITY);
-	NVIC_EnableIRQ(TIM2_IRQn);
-	
-	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
-	TIM3->CR1 |= TIM_CR1_CEN;
-}
-
-/*
- *	initialize PWM output pins
- */
-void output_init(void) {
-	RCC->AHB1ENR  |= RCC_AHB1ENR_GPIOCEN;
-	
-	gpio_output_init(GPIOC, X_DIR); // PC0 (x-axis dir)
-	gpio_output_init(GPIOC, Y_DIR); // PC1 (y-axis dir)
-	gpio_output_init(GPIOC, MAGNET_PIN); // PC1
-	
-	gpio_output_init(GPIOC, X_SLEEP); // PC6 (x-axis sleep)
-	gpio_output_init(GPIOC, Y_SLEEP); // PC7 (y-axis sleep)
-	
-	// wire PWM to LED to verify output (use PC8 or PC9 to capture PWM output)
-	gpio_alternate_init(GPIOC, X_STEP); // PC8 (x-axis step)
-	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH0);
-	gpio_alternate_init(GPIOC, Y_STEP); // PC9 (y-axis step)
-	GPIOC->AFR[1] &= ~(GPIO_AFRH_AFRH1);
-}
-
-/*
- *	initialize calibration switches and 
- *  set up EXTI interrupts
- */
-void cal_switches_init(void) {
-	RCC->AHB1ENR  |= RCC_AHB1ENR_GPIOCEN;
-	
-	gpio_output_init(GPIOC, X_RESET); // PC2 (x-axis reset)
-	gpio_output_init(GPIOC, Y_RESET); // PC3 (y-axis reset)
-	
-	gpio_input_init(GPIOC, X_CAL);
-	gpio_input_init(GPIOC, Y_CAL);
-	
-	// resets internal step counters in DRV8824
-	gpio_write_reg16(&(GPIOC->ODR), X_RESET, 1); // nRESET
-	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
-}
-
-void cal_interrupt_init(void) {
-	cal_switches_init();
-	// enable cal switch interrupts
-	// switches are active low
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
-	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	EXTI->FTSR |= (EXTI_RTSR_TR4 | EXTI_RTSR_TR5); // trigger on rising edge
-	
-	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
-}
-
-void calibrate(void) {
-	// step until hit calibration switches
-		
-	add_to_queue(-2000, 0);
-	
-	while (!(GPIOC->IDR & (1 << X_CAL))) {
-		// wait until x interrupt
-		// do something at timeout
-    }
-	stop_axis(X);
-	add_to_queue(SQUARE_HALF_WIDTH, -2000);
-	
-	while (!(GPIOC->IDR & (1 << Y_CAL))) {
-		// wait until y interrupt
-    }
-	stop_axis(Y);
-	add_to_queue(0, SQUARE_HALF_WIDTH);
-	HAL_Delay(1000);
-	calibrating = 0;
-}
-
-/*
- *	initialize uart peripheral
- */
-void uart_init(void) {
-	RCC->AHB1ENR  |= RCC_AHB1ENR_GPIOAEN;
-	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-	// setup uart
-	GPIOA->MODER  |= (2 << GPIO_MODER_MODER9_Pos);  // alternate
-	GPIOA->MODER  |= (2 << GPIO_MODER_MODER10_Pos); // alternate
-	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH1_Pos); // PA9,  USART1_TX
-	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH2_Pos); // PA10, USART1_RX
-	USART1->BRR    = 833; // set baud to 9600 = 8MHz/833
+	//AF enable
+	GPIOA->AFR[1] |= (7 << GPIO_AFRH_AFRH1_Pos);// PA9 AF7
+	GPIOA->AFR[1] |= (7 << GPIO_AFRH_AFRH2_Pos);//PA10 AF7
+	USART1->BRR = 833; // set baud to 9600 = 8MHz/833
 	USART1->CR1   |= USART_CR1_TE; // enable TX
 	USART1->CR1   |= USART_CR1_RXNEIE; // enable RXNE interrupt
 	USART1->CR1   |= USART_CR1_RE; // enable RX
@@ -224,91 +90,27 @@ void uart_init(void) {
 	NVIC_SetPriority(USART1_IRQn, UART_PRIORITY);
 	NVIC_EnableIRQ(USART1_IRQn);
 	
-	USART1->CR1   |= USART_CR1_UE; // enable USART1
+	USART1->CR1 |= USART_CR1_UE;// enable USART
+	
 }
 
-/*
- *	for user button (kill switch)
- */
-void HAL_SYSTICK_Callback(void) {
-    static uint32_t debouncer = 0;
-	static uint32_t x_debouncer = 0;
-	static uint32_t y_debouncer = 0;
-    
-    debouncer = (debouncer << 1);
-    if(GPIOA->IDR & (1 << 0)) {
-        debouncer |= 0x1;
-    }
-
-    if(debouncer == 0x7FFFFFFF) {
-		stop_stepping();
-		empty_queue();
-    }
+void mux_init(void){
 	
-	if (!calibrating) {
-		if (axis_stepping(X)) {
-			x_debouncer = (x_debouncer << 1);
-			if (GPIOC->IDR & (1 << X_CAL)) {
-				x_debouncer |= 0x1;
-			}
-			if (x_debouncer == 0x7FFFFFFF) {
-				x_debouncer = 0;
-				stop_stepping();
-				empty_queue();
-				add_to_queue(SQUARE_HALF_WIDTH, 0);
-			}
-		}
+	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;//enable ADC1 clock
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN; // enable clocks for gpioc
+	//PB10 -ADC PB15 are used for data select lines for MUX
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+	
+	//configure GPIO 10-15 to general purpose output mode
+	GPIOB->MODER |= GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0 
+								|	GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0
+								| GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0;
+	
+	//enable continuous conversion
+	ADC1->CR2 |= ADC_CR2_CONT;
+	ADC1->CR2 |= ADC_CR2_ADON;
 		
-		if (axis_stepping(Y)) {
-			y_debouncer = (y_debouncer << 1);
-			if (GPIOC->IDR & (1 << Y_CAL)) {
-				y_debouncer |= 0x1;
-			}
-			if (y_debouncer == 0x7FFFFFFF) {
-				y_debouncer = 0;
-				stop_stepping();
-				empty_queue();
-				add_to_queue(0, SQUARE_HALF_WIDTH);
-			}
-		}
-	}
-    
-}
-
-/*
- *	calibration switches
- *  (broken, for some reason needs two clicks)
- */
-void EXTI4_15_IRQHandler(void) {
-	static uint8_t x_debouncer = 0;
-	static uint8_t y_debouncer = 0;
-    
-    x_debouncer = (x_debouncer << 1);
-    if (GPIOC->IDR & (1 << X_CAL)) {
-		stop_stepping();
-        //x_debouncer |= 0x1;
-    }
-	y_debouncer = (y_debouncer << 1);
-    if (GPIOC->IDR & (1 << Y_CAL)) {
-		stop_stepping();
-        //y_debouncer |= 0x1;
-    }
 	
-	/*
-	if (x_debouncer == 0x7F) {
-		//x_debouncer = 0;
-		stop_stepping();
-		empty_queue();
-		//sadd_to_queue(SQUARE_HALF_WIDTH, 0);
-		EXTI->PR |= (1 << X_CAL); // clear flag
-	} 
-	if (y_debouncer == 0x7F) {
-		//y_debouncer = 0;
-		stop_stepping();
-		empty_queue();
-		//add_to_queue(0, SQUARE_HALF_WIDTH);
-		EXTI->PR |= (1 << Y_CAL);
-	}*/
 }
 
 /* USER CODE END 0 */
@@ -317,8 +119,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  // LEDS on PC8, PC9, PC6, PC7 DON'T USE THESE PINS FOR TIMERS
-  // Use TIM2_CH2 (PA1) and TIM3_CH4 (PB1)
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -326,30 +127,24 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
 
+  /* USER CODE BEGIN Init */
+	
+
+  /* USER CODE END Init */
+
   /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
 
   /* USER CODE BEGIN 2 */
-  button_init();
-  timer_init();
-  output_init();
-  step_control_init();
-  cal_switches_init();
-  calibrate();
-  step_reset(); // set beginning position
-  cal_interrupt_init();
-  uart_init(); // enable after cal to prevent extraneous moves
+	uart_init();
+	mux_init();
 
-  int i;
-  for (i=0; i < 10; i++) {
-	add_to_queue_d(50, 0, magnet_on);
-	add_to_queue(0, 50);
-	add_to_queue(-50, 0);
-	add_to_queue(0, -50);
-  }
- 
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -359,7 +154,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-  __WFI();
+
   }
   /* USER CODE END 3 */
 
@@ -373,6 +168,12 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
 
+    /**Configure the main internal regulator output voltage 
+    */
+  __HAL_RCC_PWR_CLK_ENABLE();
+
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+
     /**Initializes the CPU, AHB and APB busses clocks 
     */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
@@ -381,20 +182,21 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1;
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
-    Error_Handler();
+    _Error_Handler(__FILE__, __LINE__);
   }
 
     /**Configure the Systick interrupt time 
@@ -418,14 +220,14 @@ void SystemClock_Config(void)
   * @param  None
   * @retval None
   */
-void Error_Handler(void)
+void _Error_Handler(char * file, int line)
 {
-  /* USER CODE BEGIN Error_Handler */
+  /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   while(1) 
   {
   }
-  /* USER CODE END Error_Handler */ 
+  /* USER CODE END Error_Handler_Debug */ 
 }
 
 #ifdef USE_FULL_ASSERT
