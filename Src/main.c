@@ -85,6 +85,31 @@ void timer_init(void) {
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN; // PWM
 	RCC->APB1ENR |= RCC_APB1ENR_TIM2EN; // for interrupts, mirror PWM
 	
+	//Analog Code initialization -------------------------------------------------
+	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+	//PB10 -ADC PB15 are used for data select lines for MUX
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+	
+	//configure GPIO 10-15 to general purpose output mode 
+	GPIOB->MODER |= GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0;
+	GPIOB->MODER |= GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
+	GPIOB->MODER |= GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0;
+	
+	//enable alternate function mode for USART, with pull up resistor and open drain
+	GPIOB->MODER |= GPIO_MODER_MODER6_1 | GPIO_MODER_MODER7_1;
+	GPIOB->OTYPER |= GPIO_OTYPER_OT_6;
+	GPIOB->PUPDR |= GPIO_PUPDR_PUPDR6_0;
+	
+	//enable clock for ADC
+	
+	
+	
+	
+	
+
+	
 	// for interrupt
 	TIM2->PSC   = PRESCALE;
 	TIM2->ARR   = AUTO_RELOAD;   
