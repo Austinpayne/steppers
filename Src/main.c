@@ -38,6 +38,7 @@
 #include "include/gpio.h"
 #include "include/stepper.h"
 #include "include/stepper_control.h"
+#include "include/uart.h"
 #include "string.h"
 
 #define UART_PRIORITY 1
@@ -216,8 +217,12 @@ void HAL_SYSTICK_Callback(void) {
     }
 
     if(debouncer == 0x7FFFFFFF) {
-		stop_stepping();
-		empty_queue();
+		if (stepping()) { // kill switch
+			stop_stepping();
+			empty_queue();
+		} else { // send ok to photon
+			tx_cmd_char(CMD_STATUS, OK);
+		}
     }
 	
 	if (!calibrating) {
@@ -250,6 +255,7 @@ void HAL_SYSTICK_Callback(void) {
     
 }
 
+#if 0
 /*
  *	calibration switches
  *  (broken, for some reason needs two clicks)
@@ -269,7 +275,6 @@ void EXTI4_15_IRQHandler(void) {
         //y_debouncer |= 0x1;
     }
 	
-	/*
 	if (x_debouncer == 0x7F) {
 		//x_debouncer = 0;
 		stop_stepping();
@@ -283,8 +288,9 @@ void EXTI4_15_IRQHandler(void) {
 		empty_queue();
 		//add_to_queue(0, SQUARE_HALF_WIDTH);
 		EXTI->PR |= (1 << Y_CAL);
-	}*/
+	}
 }
+#endif
 
 /* USER CODE END 0 */
 
@@ -317,13 +323,13 @@ int main(void)
   cal_interrupt_init();
   uart_init(); // enable after cal to prevent extraneous moves
 
-  int i;
+  /*int i;
   for (i=0; i < 10; i++) {
 	add_to_queue_d(50, 0, magnet_on);
 	add_to_queue(0, 50);
 	add_to_queue(-50, 0);
 	add_to_queue(0, -50);
-  }
+  }*/
  
   /* USER CODE END 2 */
 

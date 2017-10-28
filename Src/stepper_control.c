@@ -28,8 +28,8 @@ int mag_off(void) {
 } done_func magnet_off = mag_off;
 
 int mag_off_move_done(void) {
-	MAGNET_OFF;
-	tx_char('0');
+	mag_off();
+	tx_cmd_char(CMD_STATUS, OK);
 	return 0;
 } done_func move_done = mag_off_move_done;
 
@@ -74,7 +74,7 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), magnet_on); // move piece onto line
 	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
 	 add_to_queue(0, y_mm);
-	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), move_done); // stagger off line
+	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), magnet_off); // stagger off line
 }
 
 #define SET_COORDS(sx, sy, dx, dy) \

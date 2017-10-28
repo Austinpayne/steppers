@@ -9,7 +9,7 @@ static int i = 0;
 /*
  *	tx one char to serial
  */
-void tx_char(char character) {
+static void tx_char(char character) {
 	while(1) {
 		if (USART1->ISR & USART_ISR_TXE) {
 			break;
@@ -21,11 +21,35 @@ void tx_char(char character) {
 /*
  *	tx string to serial
  */
-void tx_string(char *string) {
-	while (*string != 0) {
+static void tx_string(const char *string) {
+	while (*string != '\0') {
 		tx_char(*string);
 		string++;
 	}
+}
+
+int __io_putchar(int ch) {
+    while(1) {
+		if (USART1->ISR & USART_ISR_TXE) {
+			break;
+		}
+	}
+	USART1->TDR = ch;
+	return 0;
+}
+
+void tx_cmd_char(unsigned char cmd, unsigned char param) {
+	tx_char(cmd);
+	tx_char(' ');
+	tx_char(param);
+	tx_char('\n');
+}
+
+void tx_cmd(unsigned char cmd, const char *params) {
+	tx_char(cmd);
+	tx_char(' ');
+	tx_string(params);
+	tx_char('\n');
 }
 
 /*
