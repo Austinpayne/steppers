@@ -1,0 +1,3 @@
+[submodule "Src/serial-protocol"]
+	path = Src/serial-protocol
+	url = https://github.com/Austinpayne/chess-serial-protocol.git
