@@ -51,6 +51,7 @@ unsigned char calibrating = 1;
 char rx_char;
 char rx_buffer[SERIAL_BUFF_SIZE];
 int irx = 0;
+unsigned long systime = 0;
 
 /* USER CODE END Includes */
 
@@ -82,9 +83,10 @@ PUTCHAR_PROTOTYPE {
     return ch;
 }
 
-void rx_serial_command() {
+void rx_serial_command(char c) {
     if (irx < SERIAL_BUFF_SIZE) {
         char c = SERIAL_READ;
+		printf(&c);
         if (c == '\r' || c == '\n') {
             rx_buffer[irx] = '\0';
             printf("%s", rx_buffer);
@@ -99,9 +101,8 @@ void rx_serial_command() {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (huart->Instance == USART1) {
-        HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
-	}
+	rx_serial_command();
+    HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
 /* USER CODE END PFP */
 
@@ -202,22 +203,28 @@ void cal_interrupt_init(void) {
 
 void calibrate(void) {
 	// step until hit calibration switches
-		
-	add_to_queue(-2000, 0);
+	unsigned long timeout = systime + 5000;
+	unsigned char x_done = 0;
+	unsigned char y_done = 0;
+	add_to_queue(-2000, -2000);
+	add_to_queue(SQUARE_HALF_WIDTH, SQUARE_HALF_WIDTH);
 	
-	while (!(GPIOC->IDR & (1 << X_CAL))) {
-		// wait until x interrupt
-		// do something at timeout
+	while (1) {
+		if (x_done && y_done) {
+			break;
+		} else if (GPIOC->IDR & (1 << X_CAL)) {
+			stop_axis(X);
+			x_done = 1;
+		} else if (GPIOC->IDR & (1 << Y_CAL)) {
+			stop_axis(Y);
+			y_done = 1;
+		} else if (systime > timeout) { // timeout
+			stop_stepping();
+			empty_queue();
+			break;
+		}		
     }
-	stop_axis(X);
-	add_to_queue(SQUARE_HALF_WIDTH, -2000);
-	
-	while (!(GPIOC->IDR & (1 << Y_CAL))) {
-		// wait until y interrupt
-    }
-	stop_axis(Y);
-	add_to_queue(0, SQUARE_HALF_WIDTH);
-	HAL_Delay(1000);
+	HAL_Delay(1000); // wait a little bit for reset
 	calibrating = 0;
 }
 
@@ -247,6 +254,7 @@ void uart_init(void) {
  *	for user button (kill switch)
  */
 void HAL_SYSTICK_Callback(void) {
+	systime++;
     static uint32_t debouncer = 0;
 	static uint32_t x_debouncer = 0;
 	static uint32_t y_debouncer = 0;
@@ -365,6 +373,7 @@ int main(void)
   cal_interrupt_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
+  printf("system ready");
 
   /*int i;
   for (i=0; i < 10; i++) {
@@ -381,7 +390,7 @@ int main(void)
   while (1)
   {
   /* USER CODE END WHILE */
-	  printf("%s\n", "Hello World!");
+  //printf("%s\n", "Hello World!");
   /* USER CODE BEGIN 3 */
   __WFI();
   }

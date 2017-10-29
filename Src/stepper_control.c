@@ -70,8 +70,8 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 int x_mm = SQUARES_TO_MM(x_squares);
 	 int y_mm = SQUARES_TO_MM(y_squares);
 	
-	 add_to_queue(x_align, y_align); // goto src
-	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), magnet_on); // move piece onto line
+	 add_to_queue_d(x_align, y_align, magnet_on); // goto src
+	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset)); // move piece onto line
 	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
 	 add_to_queue(0, y_mm);
 	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), magnet_off); // stagger off line
