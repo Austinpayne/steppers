@@ -27,5 +27,7 @@ void empty_queue(void);
 int mag_on(void); extern done_func magnet_on;
 int mag_off(void); extern done_func magnet_off;
 int mag_off_move_done(void); extern done_func move_done;
+unsigned char calibrating(void);
+int calibrate(void);
 
 #endif /* __STEPPER_CTRL_H_ */

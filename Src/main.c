@@ -35,23 +35,20 @@
 #include "stm32f0xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-#include "include/gpio.h"
-#include "include/stepper.h"
-#include "include/stepper_control.h"
-#include "serial-protocol/src/serial.h"
+#include "gpio.h"
+#include "stepper.h"
+#include "stepper_control.h"
+#include "serial.h"
 #include "string.h"
 
-#define UART_PRIORITY 1
 #define CAL_PRIORITY  0
-#define STEP_PRIORITY 1
+#define STEP_PRIORITY 0
 #define SERIAL_BUFF_SIZE 64
 #define SERIAL_READ rx_char
 
-unsigned char calibrating = 1;
 char rx_char;
 char rx_buffer[SERIAL_BUFF_SIZE];
 int irx = 0;
-unsigned long systime = 0;
 
 /* USER CODE END Includes */
 
@@ -184,108 +181,6 @@ void cal_interrupt_init(void) {
 	
 	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
 	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
-}
-
-void calibrate(void) {
-	// step until hit calibration switches
-	unsigned long timeout = systime + 5000;
-	unsigned char x_done = 0;
-	unsigned char y_done = 0;
-	add_to_queue(-2000, -2000);
-	add_to_queue(SQUARE_HALF_WIDTH, SQUARE_HALF_WIDTH);
-	
-	while (1) {
-		if (x_done && y_done) {
-			break;
-		} else if (GPIOC->IDR & (1 << X_CAL)) {
-			stop_axis(X);
-			x_done = 1;
-		} else if (GPIOC->IDR & (1 << Y_CAL)) {
-			stop_axis(Y);
-			y_done = 1;
-		} else if (systime > timeout) { // timeout
-			stop_stepping();
-			empty_queue();
-			break;
-		}		
-    }
-	HAL_Delay(1000); // wait a little bit for reset
-	calibrating = 0;
-}
-
-/*
- *	initialize uart peripheral
- */
-void uart_init(void) {
-	RCC->AHBENR  |= RCC_AHBENR_GPIOAEN;
-	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-	// setup uart
-	GPIOA->MODER  |= (2 << GPIO_MODER_MODER9_Pos);  // alternate
-	GPIOA->MODER  |= (2 << GPIO_MODER_MODER10_Pos); // alternate
-	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH1_Pos); // PA9,  USART1_TX
-	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH2_Pos); // PA10, USART1_RX
-	USART1->BRR    = 833; // set baud to 9600 = 8MHz/833
-	USART1->CR1   |= USART_CR1_TE; // enable TX
-	USART1->CR1   |= USART_CR1_RXNEIE; // enable RXNE interrupt
-	USART1->CR1   |= USART_CR1_RE; // enable RX
-	
-	NVIC_SetPriority(USART1_IRQn, UART_PRIORITY);
-	NVIC_EnableIRQ(USART1_IRQn);
-	
-	USART1->CR1   |= USART_CR1_UE; // enable USART1
-}
-
-/*
- *	for user button (kill switch)
- */
-void HAL_SYSTICK_Callback(void) {
-	systime++;
-    static uint32_t debouncer = 0;
-	static uint32_t x_debouncer = 0;
-	static uint32_t y_debouncer = 0;
-    
-    debouncer = (debouncer << 1);
-    if(GPIOA->IDR & (1 << 0)) {
-        debouncer |= 0x1;
-    }
-
-    if(debouncer == 0x7FFFFFFF) {
-		if (stepping()) { // kill switch
-			stop_stepping();
-			empty_queue();
-		} else { // send ok to photon
-			SEND_CMD_P(CMD_STATUS, "%d", OK);
-		}
-    }
-	
-	if (!calibrating) {
-		if (axis_stepping(X)) {
-			x_debouncer = (x_debouncer << 1);
-			if (GPIOC->IDR & (1 << X_CAL)) {
-				x_debouncer |= 0x1;
-			}
-			if (x_debouncer == 0x7FFFFFFF) {
-				x_debouncer = 0;
-				stop_stepping();
-				empty_queue();
-				add_to_queue(SQUARE_HALF_WIDTH, 0);
-			}
-		}
-		
-		if (axis_stepping(Y)) {
-			y_debouncer = (y_debouncer << 1);
-			if (GPIOC->IDR & (1 << Y_CAL)) {
-				y_debouncer |= 0x1;
-			}
-			if (y_debouncer == 0x7FFFFFFF) {
-				y_debouncer = 0;
-				stop_stepping();
-				empty_queue();
-				add_to_queue(0, SQUARE_HALF_WIDTH);
-			}
-		}
-	}
-    
 }
 
 #if 0

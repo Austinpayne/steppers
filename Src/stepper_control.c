@@ -1,12 +1,14 @@
-#include "include/stepper.h"
-#include "include/stepper_control.h"
-#include "include/queue.h"
-#include "include/gpio.h"
-#include "serial-protocol/src/serial.h"
+#include "stepper.h"
+#include "stepper_control.h"
+#include "queue.h"
+#include "gpio.h"
+#include "serial.h"
 #include "string.h"
 
 tuple_queue_t steps; // in mm (makes stepping half squares more accurate)
 tuple_t current; // current step tuple
+unsigned char cal = 0; // calibration flag
+unsigned long systime = 0;
 
 /* wrapper for inializing steps queue */
 void step_control_init(void) {init(&steps);}
@@ -29,7 +31,7 @@ int mag_off(void) {
 
 int mag_off_move_done(void) {
 	mag_off();
-	SEND_CMD_P(CMD_STATUS, "%d", OK);
+	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	return 0;
 } done_func move_done = mag_off_move_done;
 
@@ -165,4 +167,97 @@ void TIM2_IRQHandler(void) {
 	} else {
 		step();
 	}
+}
+
+unsigned char calibrating(void) {
+	return cal;
+}
+
+int calibrate(void) {
+	// step until hit calibration switches
+	cal = 1;
+	unsigned long timeout = systime + 5000;
+	LOG_TRACE("systime=%ld", systime);
+	LOG_TRACE("timeout=%ld", timeout);
+	unsigned char x_done = 0;
+	unsigned char y_done = 0;
+	int ret = 0;
+	add_to_queue(-2000, -2000);
+	add_to_queue(SQUARE_HALF_WIDTH, SQUARE_HALF_WIDTH);
+	
+	LOG_TRACE("beginning calibration...");
+	while (1) {
+		if (x_done && y_done) {
+			break;
+		} else if (GPIOC->IDR & (1 << X_CAL)) {
+			stop_axis(X);
+			x_done = 1;
+		} else if (GPIOC->IDR & (1 << Y_CAL)) {
+			stop_axis(Y);
+			y_done = 1;
+		} else if (systime > timeout) { // timeout
+			stop_stepping();
+			empty_queue();
+			ret = -1;
+			break;
+		}
+		LOG_TRACE("systime=%ld", systime);
+    }
+	LOG_TRACE("done calibrating");
+	HAL_Delay(1000); // wait a little bit for reset
+	cal = 0;
+	return ret;
+}
+
+/*
+ *	for user button (kill switch)
+ */
+void HAL_SYSTICK_Callback(void) {
+	systime++;
+    static uint32_t debouncer = 0;
+	static uint32_t x_debouncer = 0;
+	static uint32_t y_debouncer = 0;
+    
+    debouncer = (debouncer << 1);
+    if(GPIOA->IDR & (1 << 0)) {
+        debouncer |= 0x1;
+    }
+
+    if(debouncer == 0x7FFFFFFF) {
+		if (stepping()) { // kill switch
+			stop_stepping();
+			empty_queue();
+		} else { // send ok to photon
+			SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+		}
+    }
+	
+	if (!calibrating()) {
+		if (axis_stepping(X)) {
+			x_debouncer = (x_debouncer << 1);
+			if (GPIOC->IDR & (1 << X_CAL)) {
+				x_debouncer |= 0x1;
+			}
+			if (x_debouncer == 0x7FFFFFFF) {
+				x_debouncer = 0;
+				stop_stepping();
+				empty_queue();
+				add_to_queue(SQUARE_HALF_WIDTH, 0);
+			}
+		}
+		
+		if (axis_stepping(Y)) {
+			y_debouncer = (y_debouncer << 1);
+			if (GPIOC->IDR & (1 << Y_CAL)) {
+				y_debouncer |= 0x1;
+			}
+			if (y_debouncer == 0x7FFFFFFF) {
+				y_debouncer = 0;
+				stop_stepping();
+				empty_queue();
+				add_to_queue(0, SQUARE_HALF_WIDTH);
+			}
+		}
+	}
+    
 }
