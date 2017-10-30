@@ -2,7 +2,7 @@
 #include "include/stepper_control.h"
 #include "include/queue.h"
 #include "include/gpio.h"
-#include "include/uart.h"
+#include "serial-protocol/src/serial.h"
 #include "string.h"
 
 tuple_queue_t steps; // in mm (makes stepping half squares more accurate)
@@ -29,7 +29,7 @@ int mag_off(void) {
 
 int mag_off_move_done(void) {
 	mag_off();
-	tx_cmd_char(CMD_STATUS, OK);
+	SEND_CMD_P(CMD_STATUS, "%d", OK);
 	return 0;
 } done_func move_done = mag_off_move_done;
 

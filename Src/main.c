@@ -254,7 +254,7 @@ void HAL_SYSTICK_Callback(void) {
 			stop_stepping();
 			empty_queue();
 		} else { // send ok to photon
-			//SEND_CMD_P(CMD_STATUS, "%d", OK);
+			SEND_CMD_P(CMD_STATUS, "%d", OK);
 		}
     }
 	
