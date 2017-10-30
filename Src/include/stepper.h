@@ -55,9 +55,9 @@ void step(void);
 void stepn(int axis, int n, int dir);
 void step_mm(int axis, int mm);
 void set_dir(int axis, int dir);
-int  axis_stepping(int axis);
+unsigned char axis_stepping(int axis);
 unsigned char stepping(void);
-int  get_pos(int axis);
-int  abs(int val);
+int get_pos(int axis);
+unsigned int abs(int val);
 
 #endif /* __STEPPER_H_ */

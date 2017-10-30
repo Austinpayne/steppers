@@ -1,4 +1,4 @@
-#include "include/gpio.h"
+#include "gpio.h"
 
 /**
  *	Initializes the specified GPIO port and pin to be 

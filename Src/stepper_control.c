@@ -6,7 +6,7 @@
 #include "string.h"
 
 tuple_queue_t steps; // in mm (makes stepping half squares more accurate)
-tuple_t current; // current step tuple
+tuple_t current = {0,0,NULL}; // current step tuple
 unsigned char cal = 0; // calibration flag
 unsigned long systime = 0;
 
@@ -166,18 +166,22 @@ int uci_move(const char *move) {
  */
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
-	if (!is_empty(&steps) && !stepping()) {
+	if (!stepping()) {
 		if (current.done) { // run done function
-			LOG_TRACE("running done func");
 			current.done();
+			current.done = NULL;
 		}
-		current = rm(&steps);
 		
-		step_mm(X, current.x);
-		step_mm(Y, current.y);
+		if (!is_empty(&steps)) {
+			current = rm(&steps);
+		
+			step_mm(X, current.x);
+			step_mm(Y, current.y);
+		}
 	} else {
 		step();
 	}
+	TIM2->SR &= ~(TIM_SR_UIF); // clear interrupt
 }
 
 unsigned char calibrating(void) {
@@ -238,6 +242,10 @@ void HAL_SYSTICK_Callback(void) {
 			stop_stepping();
 			empty_queue();
 		} else { // send ok to photon
+			unsigned char e = is_empty(&steps);
+			unsigned char s = stepping();
+			LOG_INFO("is_empty=%d", e);
+			LOG_INFO("stepping=%d", s);
 			SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 		}
     }

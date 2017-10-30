@@ -1,5 +1,5 @@
-#include "include/stepper.h"
-#include "include/gpio.h"
+#include "stepper.h"
+#include "gpio.h"
 
 // globals
 static int x_step; // current steps to take
@@ -64,7 +64,6 @@ void step(void) {
 	} else if (y_step <= 0) {
 		stop_axis(Y);
 	}
-	TIM2->SR &= ~(TIM_SR_UIF);
 }
 
 /*
@@ -131,7 +130,7 @@ void set_dir(int axis, int dir) {
 /*
  *	get current axis steps
  */
-int axis_stepping(int axis) {
+unsigned char axis_stepping(int axis) {
     if (axis == X)
 	    return (x_step == OFF ? 0 : 1);
     else
@@ -154,6 +153,6 @@ int get_pos(int axis) {
 /*
  *	Absolute value function
  */
-int abs(int val) {
+unsigned int abs(int val) {
 	return (val < 0 ? -val : val);
 }

@@ -2,7 +2,7 @@
  *	Simple fixed-size queue data structure and functions
  */
  
-#include "include/queue.h"
+#include "queue.h"
 #ifdef UNIT_TEST
 #include <stdio.h>
 #else
@@ -25,7 +25,7 @@ void init(tuple_queue_t *q) {
 /*
  *	add tuple (x, y) to end of queue 
  */
-int add(tuple_queue_t *q, int x, int y, done_func d) {
+unsigned char add(tuple_queue_t *q, int x, int y, done_func d) {
 	if(!is_full(q) && ( // queue not full and
 		 (x != 0 && y != 0) || // x,y are both non-zero
 		 (x == 0 && y != 0) || // or x is zero but y is non-zero
@@ -61,7 +61,7 @@ tuple_t rm(tuple_queue_t *q) {
 /*
  *	check if queue is empty
  */
-int is_empty(tuple_queue_t *q) {
+unsigned char is_empty(tuple_queue_t *q) {
 	 if (q->head == q->end && q->head->x == 0 && q->head->y == 0)
 		 return 1;
 	 else
@@ -71,7 +71,7 @@ int is_empty(tuple_queue_t *q) {
 /*
  *	check if queue is full
  */
-int is_full(tuple_queue_t *q) {
+unsigned char is_full(tuple_queue_t *q) {
 	 if (q->head == q->end && (q->head->x != 0 || q->head->y != 0))
 		 return 1;
 	 else

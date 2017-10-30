@@ -21,9 +21,9 @@ typedef struct {
 } tuple_queue_t;
 
 void init(tuple_queue_t *q);
-int  add(tuple_queue_t *q, int x, int y, done_func d);
-int  is_empty(tuple_queue_t *q);
-int  is_full(tuple_queue_t *q);
+unsigned char add(tuple_queue_t *q, int x, int y, done_func d);
+unsigned char is_empty(tuple_queue_t *q);
+unsigned char is_full(tuple_queue_t *q);
 void clear_queue(tuple_queue_t *q);
 tuple_t  rm(tuple_queue_t *q);
 
