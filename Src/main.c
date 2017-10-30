@@ -38,7 +38,7 @@
 #include "include/gpio.h"
 #include "include/stepper.h"
 #include "include/stepper_control.h"
-#include "include/uart.h"
+#include "serial-protocol/src/serial.h"
 #include "string.h"
 
 #define UART_PRIORITY 1
@@ -83,25 +83,10 @@ PUTCHAR_PROTOTYPE {
     return ch;
 }
 
-void rx_serial_command(char c) {
-    if (irx < SERIAL_BUFF_SIZE) {
-        char c = SERIAL_READ;
-		printf(&c);
-        if (c == '\r' || c == '\n') {
-            rx_buffer[irx] = '\0';
-            printf("%s", rx_buffer);
-            memset(rx_buffer, 0, SERIAL_BUFF_SIZE);
-            irx = 0;
-        } else {
-            rx_buffer[irx] = c;
-            irx++;
-        }
-    }
-}
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	rx_serial_command();
+	printf(&rx_char);
+	rx_serial_command(rx_char);
     HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
 /* USER CODE END PFP */
@@ -269,7 +254,7 @@ void HAL_SYSTICK_Callback(void) {
 			stop_stepping();
 			empty_queue();
 		} else { // send ok to photon
-			tx_cmd_char(CMD_STATUS, OK);
+			//SEND_CMD_P(CMD_STATUS, "%d", OK);
 		}
     }
 	
@@ -373,7 +358,7 @@ int main(void)
   cal_interrupt_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
-  printf("system ready");
+  LOG_INFO("system ready");
 
   /*int i;
   for (i=0; i < 10; i++) {
@@ -390,7 +375,6 @@ int main(void)
   while (1)
   {
   /* USER CODE END WHILE */
-  //printf("%s\n", "Hello World!");
   /* USER CODE BEGIN 3 */
   __WFI();
   }
