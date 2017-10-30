@@ -24,9 +24,10 @@ int  uci_move(const char *move);
 void add_to_queue(int x, int y);
 void add_to_queue_d(int x, int y, done_func d);
 void empty_queue(void);
-int mag_on(void); extern done_func magnet_on;
-int mag_off(void); extern done_func magnet_off;
-int mag_off_move_done(void); extern done_func move_done;
+int magnet_on(void);
+int magnet_off(void);
+int move_done(void);
+int set_origin(void);
 unsigned char calibrating(void);
 int calibrate(void);
 

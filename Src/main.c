@@ -249,7 +249,6 @@ int main(void)
   step_control_init();
   cal_switches_init();
   calibrate();
-  step_reset(); // set beginning position
   cal_interrupt_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);

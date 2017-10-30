@@ -19,21 +19,31 @@ void add_to_queue_d(int x, int y, done_func d) {add(&steps, x, y, d);}
 /* wrapper for clearing steps queue */
 void empty_queue(void) {clear_queue(&steps);}
 
-int mag_on(void) {
+int magnet_on(void) {
+	LOG_TRACE("Turning magnet on");
 	MAGNET_ON;
 	return 0;
-} done_func magnet_on = mag_on;
+}
 
-int mag_off(void) {
+int magnet_off(void) {
+	LOG_TRACE("Turning magnet off");
 	MAGNET_OFF;
 	return 0;
-} done_func magnet_off = mag_off;
+}
 
-int mag_off_move_done(void) {
-	mag_off();
+int move_done(void) {
+	magnet_off();
 	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	return 0;
-} done_func move_done = mag_off_move_done;
+}
+
+int set_origin(void) {
+	step_reset();
+	int x = get_pos(X);
+	int y = get_pos(Y);
+	LOG_TRACE("(%d,%d)", x, y);
+	return 0;
+}
 
 /*
  *  move chess piece at x,y to dest_x, dest_y
@@ -158,6 +168,7 @@ void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
 	if (!is_empty(&steps) && !stepping()) {
 		if (current.done) { // run done function
+			LOG_TRACE("running done func");
 			current.done();
 		}
 		current = rm(&steps);
@@ -183,7 +194,7 @@ int calibrate(void) {
 	unsigned char y_done = 0;
 	int ret = 0;
 	add_to_queue(-2000, -2000);
-	add_to_queue(SQUARE_HALF_WIDTH, SQUARE_HALF_WIDTH);
+	add_to_queue_d(SQUARE_HALF_WIDTH, SQUARE_HALF_WIDTH, set_origin);
 	
 	LOG_TRACE("beginning calibration...");
 	while (1) {
@@ -204,7 +215,6 @@ int calibrate(void) {
 		LOG_TRACE("systime=%ld", systime);
     }
 	LOG_TRACE("done calibrating");
-	HAL_Delay(1000); // wait a little bit for reset
 	cal = 0;
 	return ret;
 }
