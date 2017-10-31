@@ -1,8 +1,5 @@
 --cpu Cortex-M7.fp.sp
 "adc\system_stm32f7xx.o"
-"adc\stm32f7xx_it.o"
-"adc\main.o"
-"adc\stm32f7xx_hal_msp.o"
 "adc\stm32f7xx_hal_pwr_ex.o"
 "adc\stm32f7xx_hal_rcc.o"
 "adc\stm32f7xx_hal_rcc_ex.o"
@@ -18,7 +15,12 @@
 "adc\stm32f7xx_hal_flash_ex.o"
 "adc\stm32f7xx_hal_gpio.o"
 "adc\stm32f7xx_hal_tim.o"
+"adc\stm32f7xx_hal_uart.o"
 "adc\startup_stm32f746xx.o"
+"adc\stm32f7xx_it.o"
+"adc\main.o"
+"adc\stm32f7xx_hal_msp.o"
+"adc\hall_array_library.o"
 --library_type=microlib --strict --scatter "ADC\ADC.sct"
 --diag_suppress=L6329 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
