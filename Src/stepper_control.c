@@ -59,42 +59,16 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 // goto src
 	 int x_align = SQUARES_TO_MM(x) - get_pos(X); // in mm
 	 int y_align = SQUARES_TO_MM(y) - get_pos(Y);
-	
-	 // turn on electromagnet (after move)
-	
+	 
 	 // move to dst
-	 int x_offset = 0;
-	 int y_offset = 0;
-	 int x_squares = dest_x - x;
-	 int y_squares = dest_y - y;
-	 
-	 // for offsetting onto/off line
-	 if (x_squares >= 0) { // +x direction
-		 if (x_squares > 0)
-			x_squares--;
-		 x_offset = 1;
-	 } else if (x_squares < 0) { // -x direction
-		 x_squares++;
-		 x_offset = -1;
-	 }
-	 
-	 if (y_squares >= 0) { // +y direction
-		 if (y_squares > 0)
-			y_squares--;
-		 y_offset = 1;
-	 } else if (y_squares < 0) { // -y direction
-		 y_squares++;
-		 y_offset = -1;
-	 }
-	 
-	 int x_mm = SQUARES_TO_MM(x_squares);
-	 int y_mm = SQUARES_TO_MM(y_squares);
+	 int x_mm = SQUARES_TO_MM(dest_x - x);
+	 int y_mm = SQUARES_TO_MM(dest_y - y);
 	
 	 add_to_queue_d(x_align, y_align, magnet_on); // goto src
-	 add_to_queue(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset)); // move piece onto line
+	 add_to_queue(HALF_SQUARES_TO_MM(1), HALF_SQUARES_TO_MM(1)); // move piece onto line
 	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
 	 add_to_queue(0, y_mm);
-	 add_to_queue_d(HALF_SQUARES_TO_MM(x_offset), HALF_SQUARES_TO_MM(y_offset), magnet_off); // stagger off line
+	 add_to_queue_d(HALF_SQUARES_TO_MM(-1), HALF_SQUARES_TO_MM(-1), magnet_off); // stagger off line
 }
 
 #define SET_COORDS(sx, sy, dx, dy) \
@@ -269,7 +243,7 @@ void HAL_SYSTICK_Callback(void) {
 				empty_queue();
 				//add_to_queue(SQUARE_HALF_WIDTH, 0);
 			}
-			if (get_pos(X) < 0 || get_pos(X) > UPPER_LIMIT) {
+			if (/*get_pos(X) < LOWER_LIMIT ||*/ get_pos(X) > UPPER_LIMIT) {
 				stop_stepping();
 				empty_queue();
 			}
@@ -286,7 +260,7 @@ void HAL_SYSTICK_Callback(void) {
 				empty_queue();
 				//add_to_queue(0, SQUARE_HALF_WIDTH);
 			}
-			if (get_pos(Y) < 0 || get_pos(Y) > UPPER_LIMIT) {
+			if (/*get_pos(Y) < LOWER_LIMIT ||*/ get_pos(Y) > UPPER_LIMIT) {
 				stop_stepping();
 				empty_queue();
 			}

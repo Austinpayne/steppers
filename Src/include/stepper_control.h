@@ -6,11 +6,12 @@
 // chess board constants
 #define SQUARE_WIDTH 64 // mm
 #define SQUARE_HALF_WIDTH 32 // mm
-#define UPPER_LIMIT SQUARE_WIDTH*7 // mm
+#define LOWER_LIMIT 0-SQUARE_WIDTH // mm
+#define UPPER_LIMIT SQUARE_WIDTH*9 // mm
 
 // macros
-#define SQUARES_TO_MM(squares)     (SQUARE_WIDTH*squares)
-#define HALF_SQUARES_TO_MM(halves) (SQUARE_HALF_WIDTH*halves)
+#define SQUARES_TO_MM(squares)     (SQUARE_WIDTH*(squares))
+#define HALF_SQUARES_TO_MM(halves) (SQUARE_HALF_WIDTH*(halves))
 
 // magnet
 #define MAGNET_PIN 0 // GPIOC

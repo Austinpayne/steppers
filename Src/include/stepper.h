@@ -42,8 +42,8 @@
 #define Y_PWM   TIM3->CCR4
 
 // helper macros
-#define SLEEP(axis)     (GPIOC->ODR &= (axis == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
-#define WAKE(axis)      (GPIOC->ODR |= (axis == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
+#define SLEEP(axis)     (GPIOC->ODR &= ((axis) == X) ? ~(1 << X_SLEEP) : ~(1 << Y_SLEEP))
+#define WAKE(axis)      (GPIOC->ODR |= ((axis) == X) ?  (1 << X_SLEEP) :  (1 << Y_SLEEP))
 #define MM_TO_STEPS(mm) ((mm)*STEPS_PER_MM_16)
 #define STEPS_TO_MM(s)  ((s)/STEPS_PER_MM_16)
 
