@@ -27,7 +27,11 @@ int magnet_on(void) {
 
 int magnet_off(void) {
 	LOG_TRACE("Turning magnet off");
-	MAGNET_OFF;
+	int x = get_pos(X);
+	int y = get_pos(Y);
+	LOG_TRACE("(%d,%d)", x, y);
+	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	MAGNET_OFF; 
 	return 0;
 }
 
@@ -42,6 +46,8 @@ int set_origin(void) {
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
+	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	cal = 0;
 	return 0;
 }
 
@@ -63,16 +69,18 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 int y_squares = dest_y - y;
 	 
 	 // for offsetting onto/off line
-	 if (x_squares > 0) { // +x direction
-		 x_squares--;
+	 if (x_squares >= 0) { // +x direction
+		 if (x_squares > 0)
+			x_squares--;
 		 x_offset = 1;
 	 } else if (x_squares < 0) { // -x direction
 		 x_squares++;
 		 x_offset = -1;
 	 }
 	 
-	 if (y_squares > 0) { // +y direction
-		 y_squares--;
+	 if (y_squares >= 0) { // +y direction
+		 if (y_squares > 0)
+			y_squares--;
 		 y_offset = 1;
 	 } else if (y_squares < 0) { // -y direction
 		 y_squares++;
@@ -191,14 +199,15 @@ unsigned char calibrating(void) {
 int calibrate(void) {
 	// step until hit calibration switches
 	cal = 1;
-	unsigned long timeout = systime + 5000;
+	unsigned long timeout = systime + 10000;
 	LOG_TRACE("systime=%ld", systime);
 	LOG_TRACE("timeout=%ld", timeout);
 	unsigned char x_done = 0;
 	unsigned char y_done = 0;
 	int ret = 0;
+	int origin = SQUARE_WIDTH + SQUARE_HALF_WIDTH;
 	add_to_queue(-2000, -2000);
-	add_to_queue_d(SQUARE_HALF_WIDTH, SQUARE_HALF_WIDTH, set_origin);
+	add_to_queue_d(origin, origin, set_origin);
 	
 	LOG_TRACE("beginning calibration...");
 	while (1) {
@@ -216,10 +225,8 @@ int calibrate(void) {
 			ret = -1;
 			break;
 		}
-		LOG_TRACE("systime=%ld", systime);
     }
 	LOG_TRACE("done calibrating");
-	cal = 0;
 	return ret;
 }
 
@@ -229,8 +236,8 @@ int calibrate(void) {
 void HAL_SYSTICK_Callback(void) {
 	systime++;
     static uint32_t debouncer = 0;
-	static uint32_t x_debouncer = 0;
-	static uint32_t y_debouncer = 0;
+	static uint8_t x_debouncer = 0;
+	static uint8_t y_debouncer = 0;
     
     debouncer = (debouncer << 1);
     if(GPIOA->IDR & (1 << 0)) {
@@ -256,11 +263,15 @@ void HAL_SYSTICK_Callback(void) {
 			if (GPIOC->IDR & (1 << X_CAL)) {
 				x_debouncer |= 0x1;
 			}
-			if (x_debouncer == 0x7FFFFFFF) {
+			if (x_debouncer == 0x7F) {
 				x_debouncer = 0;
 				stop_stepping();
 				empty_queue();
-				add_to_queue(SQUARE_HALF_WIDTH, 0);
+				//add_to_queue(SQUARE_HALF_WIDTH, 0);
+			}
+			if (get_pos(X) < 0 || get_pos(X) > UPPER_LIMIT) {
+				stop_stepping();
+				empty_queue();
 			}
 		}
 		
@@ -269,11 +280,15 @@ void HAL_SYSTICK_Callback(void) {
 			if (GPIOC->IDR & (1 << Y_CAL)) {
 				y_debouncer |= 0x1;
 			}
-			if (y_debouncer == 0x7FFFFFFF) {
+			if (y_debouncer == 0x7F) {
 				y_debouncer = 0;
 				stop_stepping();
 				empty_queue();
-				add_to_queue(0, SQUARE_HALF_WIDTH);
+				//add_to_queue(0, SQUARE_HALF_WIDTH);
+			}
+			if (get_pos(Y) < 0 || get_pos(Y) > UPPER_LIMIT) {
+				stop_stepping();
+				empty_queue();
 			}
 		}
 	}

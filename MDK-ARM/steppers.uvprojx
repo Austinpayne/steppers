@@ -310,7 +310,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>1</Optim>
+            <Optim>4</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -335,7 +335,7 @@
               <MiscControls>--C99</MiscControls>
               <Define>USE_HAL_DRIVER,STM32F072xB</Define>
               <Undefine></Undefine>
-              <IncludePath>../Inc;    ../Drivers/STM32F0xx_HAL_Driver/Inc;    ../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy;    ../Drivers/CMSIS/Device/ST/STM32F0xx/Include;    ../Drivers/CMSIS/Include</IncludePath>
+              <IncludePath>../Inc;../Drivers/STM32F0xx_HAL_Driver/Inc;../Drivers/STM32F0xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F0xx/Include;../Drivers/CMSIS/Include;..\Src\include;..\Src\serial-protocol\src</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -435,14 +435,19 @@
               <FilePath>..\Src\include\stepper_control.h</FilePath>
             </File>
             <File>
-              <FileName>uart.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\uart.c</FilePath>
+              <FileName>serial.cpp</FileName>
+              <FileType>8</FileType>
+              <FilePath>..\Src\serial-protocol\src\serial.cpp</FilePath>
             </File>
             <File>
-              <FileName>uart.h</FileName>
+              <FileName>serial.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\Src\include\uart.h</FilePath>
+              <FilePath>..\Src\serial-protocol\src\serial.h</FilePath>
+            </File>
+            <File>
+              <FileName>serial_stm32.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Src\serial-protocol\src\serial_stm32.c</FilePath>
             </File>
           </Files>
         </Group>

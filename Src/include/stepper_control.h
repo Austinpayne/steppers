@@ -6,6 +6,7 @@
 // chess board constants
 #define SQUARE_WIDTH 64 // mm
 #define SQUARE_HALF_WIDTH 32 // mm
+#define UPPER_LIMIT SQUARE_WIDTH*7 // mm
 
 // macros
 #define SQUARES_TO_MM(squares)     (SQUARE_WIDTH*squares)

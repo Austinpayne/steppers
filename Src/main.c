@@ -41,7 +41,7 @@
 #include "serial.h"
 #include "string.h"
 
-#define CAL_PRIORITY  0
+//#define CAL_PRIORITY  0
 #define STEP_PRIORITY 0
 #define SERIAL_BUFF_SIZE 64
 #define SERIAL_READ rx_char
@@ -82,7 +82,7 @@ PUTCHAR_PROTOTYPE {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	printf(&rx_char);
+	if (DEBUG) printf(&rx_char);
 	rx_serial_command(rx_char);
     HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
@@ -248,7 +248,7 @@ int main(void)
   output_init();
   step_control_init();
   cal_switches_init();
-  calibrate();
+  //calibrate();
   cal_interrupt_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
