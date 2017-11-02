@@ -39,7 +39,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f7xx_hal.h"
-
+#include "hall_array_library.h"
 /* USER CODE BEGIN Includes */
 
 #define UART_PRIORITY 1
@@ -162,7 +162,7 @@ int main(void)
   while (1)
   {
   /* USER CODE END WHILE */
-
+	pseudo_main();
   /* USER CODE BEGIN 3 */
 	
 		
