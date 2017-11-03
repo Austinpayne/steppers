@@ -44,7 +44,6 @@
 //#define CAL_PRIORITY  0
 #define STEP_PRIORITY 0
 #define SERIAL_BUFF_SIZE 64
-#define SERIAL_READ rx_char
 
 char rx_char;
 char rx_buffer[SERIAL_BUFF_SIZE];
@@ -83,7 +82,7 @@ PUTCHAR_PROTOTYPE {
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if (DEBUG) printf(&rx_char);
-	rx_serial_command(rx_char);
+	rx_serial_command(rx_char, NULL);
     HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
 /* USER CODE END PFP */

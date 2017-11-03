@@ -30,14 +30,13 @@ int magnet_off(void) {
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
-	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	MAGNET_OFF; 
 	return 0;
 }
 
 int move_done(void) {
 	magnet_off();
-	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	//SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	return 0;
 }
 
@@ -46,7 +45,7 @@ int set_origin(void) {
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
-	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	//SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	cal = 0;
 	return 0;
 }
@@ -68,7 +67,7 @@ void move_piece(int x, int y, int dest_x, int dest_y) {
 	 add_to_queue(HALF_SQUARES_TO_MM(1), HALF_SQUARES_TO_MM(1)); // move piece onto line
 	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
 	 add_to_queue(0, y_mm);
-	 add_to_queue_d(HALF_SQUARES_TO_MM(-1), HALF_SQUARES_TO_MM(-1), magnet_off); // stagger off line
+	 add_to_queue_d(HALF_SQUARES_TO_MM(-1), HALF_SQUARES_TO_MM(-1), move_done); // stagger off line
 }
 
 #define SET_COORDS(sx, sy, dx, dy) \
@@ -223,10 +222,6 @@ void HAL_SYSTICK_Callback(void) {
 			stop_stepping();
 			empty_queue();
 		} else { // send ok to photon
-			unsigned char e = is_empty(&steps);
-			unsigned char s = stepping();
-			LOG_INFO("is_empty=%d", e);
-			LOG_INFO("stepping=%d", s);
 			SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 		}
     }
