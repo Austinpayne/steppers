@@ -36,7 +36,7 @@ int magnet_off(void) {
 
 int move_done(void) {
 	magnet_off();
-	//SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	return 0;
 }
 
@@ -45,7 +45,7 @@ int set_origin(void) {
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
-	//SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	cal = 0;
 	return 0;
 }
@@ -172,15 +172,14 @@ unsigned char calibrating(void) {
 int calibrate(void) {
 	// step until hit calibration switches
 	cal = 1;
-	unsigned long timeout = systime + 10000;
+	unsigned long timeout = systime + CALIBRATION_TIMEOUT;
 	LOG_TRACE("systime=%ld", systime);
 	LOG_TRACE("timeout=%ld", timeout);
 	unsigned char x_done = 0;
 	unsigned char y_done = 0;
 	int ret = 0;
-	int origin = SQUARE_WIDTH + SQUARE_HALF_WIDTH;
 	add_to_queue(-2000, -2000);
-	add_to_queue_d(origin, origin, set_origin);
+	add_to_queue_d(ORIGIN_X, ORIGIN_Y, set_origin);
 	
 	LOG_TRACE("beginning calibration...");
 	while (1) {
@@ -238,7 +237,7 @@ void HAL_SYSTICK_Callback(void) {
 				empty_queue();
 				//add_to_queue(SQUARE_HALF_WIDTH, 0);
 			}
-			if (/*get_pos(X) < LOWER_LIMIT ||*/ get_pos(X) > UPPER_LIMIT) {
+			if (get_pos(X) < LOWER_LIMIT || get_pos(X) > UPPER_LIMIT) {
 				stop_stepping();
 				empty_queue();
 			}
@@ -255,7 +254,7 @@ void HAL_SYSTICK_Callback(void) {
 				empty_queue();
 				//add_to_queue(0, SQUARE_HALF_WIDTH);
 			}
-			if (/*get_pos(Y) < LOWER_LIMIT ||*/ get_pos(Y) > UPPER_LIMIT) {
+			if (get_pos(Y) < LOWER_LIMIT || get_pos(Y) > UPPER_LIMIT) {
 				stop_stepping();
 				empty_queue();
 			}
