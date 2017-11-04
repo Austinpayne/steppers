@@ -6,8 +6,13 @@
 // chess board constants
 #define SQUARE_WIDTH 64 // mm
 #define SQUARE_HALF_WIDTH 32 // mm
-#define LOWER_LIMIT 0-SQUARE_WIDTH // mm
-#define UPPER_LIMIT SQUARE_WIDTH*9 // mm
+#define X_WIDTH_ERR 0 // mm
+#define Y_WIDTH_ERR 2 // mm
+#define LOWER_LIMIT 0-(SQUARE_WIDTH+SQUARE_HALF_WIDTH)// mm
+#define UPPER_LIMIT (SQUARE_WIDTH*8)+SQUARE_HALF_WIDTH // mm
+#define ORIGIN_X 105 // mm
+#define ORIGIN_Y 100 // mm
+#define CALIBRATION_TIMEOUT 10000 // ms
 
 // macros
 #define SQUARES_TO_MM(squares)     (SQUARE_WIDTH*(squares))
