@@ -40,6 +40,8 @@
 #include "stepper_control.h"
 #include "serial.h"
 #include "string.h"
+#include "hall_array_library.h"
+
 
 //#define CAL_PRIORITY  0
 #define STEP_PRIORITY 0
@@ -48,6 +50,7 @@
 char rx_char;
 char rx_buffer[SERIAL_BUFF_SIZE];
 int irx = 0;
+extern uint16_t biases[64][64];
 
 /* USER CODE END Includes */
 
@@ -219,6 +222,53 @@ void EXTI4_15_IRQHandler(void) {
 }
 #endif
 
+void sys_init(){
+	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;//enable clock for gpioc - analog in
+	//PB10 -ADC PB15 are used for data select lines for MUX
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+	
+	//configure GPIO 10 - 15 to general purpose output mode
+	GPIOB->MODER |= GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0;
+	GPIOB->MODER |= GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
+	GPIOB->MODER |= GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0;
+	
+	//enable alternate function mode for USART, with pull up resistor and open drain
+	GPIOB->MODER |= GPIO_MODER_MODER6_1 | GPIO_MODER_MODER7_1;
+	GPIOB->OTYPER |= GPIO_OTYPER_OT_6;
+	GPIOB->PUPDR |= GPIO_PUPDR_PUPDR6_0;
+
+	//enable clock for ADC
+	ADC1->CFGR1 |= ADC_CFGR1_CONT;
+	//ADC1->CFGR1 &= ~ADC_CFGR1_CONT; // enable single conversion
+	ADC1->CHSELR |= ADC_CHSELR_CHSEL10; //PC0 is hooked to channel 10
+	//calibrate ADC
+	if((ADC1->CR & ADC_CR_ADEN) != 0){ //disable ADC if needed
+		ADC1->CR |= ADC_CR_ADDIS;
+	}
+	while((ADC1->CR & ADC_CR_ADEN) != 0){
+		/*implement a time-out here*/
+	}
+	ADC1->CR |= ADC_CR_ADCAL;
+	while((ADC1->CR & ADC_CR_ADCAL) != 0){
+		/*implement a time-out here*/
+	}
+	/*Enable sequence code*/
+	if((ADC1->ISR & ADC_ISR_ADRDY) != 0){
+		ADC1->ISR |= ADC_ISR_ADRDY;
+	}
+	ADC1->CR |= ADC_CR_ADEN;
+	while((ADC1->ISR & ADC_ISR_ADRDY) == 0){
+		/*implement a time out here*/
+	}
+	
+	//enbale usart
+	USART1->BRR = (HAL_RCC_GetHCLKFreq()/9600);
+	USART1->CR1 |= USART_CR1_TE | USART_CR1_RE; // enable usart transmitter/receiver
+	USART1->CR1 |= USART_CR1_UE; //enable USART
+}
+
 /* USER CODE END 0 */
 
 int main(void)
@@ -249,6 +299,7 @@ int main(void)
   cal_switches_init();
   //calibrate();
   cal_interrupt_init();
+  sys_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   LOG_INFO("system ready");
@@ -270,7 +321,8 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-  __WFI();
+	pseudo_main();
+	__WFI();
   }
   /* USER CODE END 3 */
 
