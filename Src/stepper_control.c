@@ -10,18 +10,63 @@ tuple_t current = {0,0,NULL}; // current step tuple
 unsigned char cal = 0; // calibration flag
 unsigned long systime = 0;
 
+// mapping of squares to mm for stepper driver
+grid_t pos = {0,0}; // magnet position in grid
+grid_t graveyard_ptr = {0,0}; // grid i,j of next captured piece
+grid_t grid[10][10] = { // y,x in mm to each square (from origin)
+/*		0         1			2		   3		  4			 5			6		   7		  8			 9		  */
+/* 0 */ {{0,0},   {0,64},   {0,128},   {0,192},   {0,256},   {0,320},   {0,384},   {0,448},   {0,512},   {0,576}},
+/* 1 */ {{64,0},  {64,64},  {64,128},  {64,192},  {64,256},  {64,320},  {64,384},  {64,448},  {64,512},  {64,576}},
+/* 2 */	{{128,0}, {128,64}, {128,128}, {128,192}, {128,256}, {128,320}, {128,384}, {128,448}, {128,512}, {128,576}},
+/* 3 */	{{192,0}, {192,64}, {192,128}, {192,192}, {192,256}, {192,320}, {192,384}, {192,448}, {192,512}, {192,576}},
+/* 4 */	{{256,0}, {256,64}, {256,128}, {256,192}, {256,256}, {256,320}, {256,384}, {256,448}, {256,512}, {256,576}},
+/* 5 */	{{320,0}, {320,64}, {320,128}, {320,192}, {320,256}, {320,320}, {320,384}, {320,448}, {320,512}, {320,576}},
+/* 6 */	{{384,0}, {384,64}, {384,128}, {384,192}, {384,256}, {384,320}, {384,384}, {384,448}, {384,512}, {384,576}},
+/* 7 */	{{448,0}, {448,64}, {448,128}, {448,192}, {448,256}, {448,320}, {448,384}, {448,448}, {448,512}, {448,576}},
+/* 8 */	{{512,0}, {512,64}, {512,128}, {512,192}, {512,256}, {512,320}, {512,384}, {512,448}, {512,512}, {512,576}},
+/* 9 */	{{576,0}, {576,64}, {576,128}, {576,192}, {576,256}, {576,320}, {576,384}, {576,448}, {576,512}, {576,576}},
+};
+
+// returns where the next captured should go in slot.x and slot.y
+// if slot.x and slot.y are -1, there are no more available slots
+void get_current_graveyard_slot(grid_t *slot) {
+	slot->x = graveyard_ptr.x;
+	slot->y = graveyard_ptr.y;
+	
+	if (graveyard_ptr.x == -1 || graveyard_ptr.y == -1)
+		return;
+	
+	// fills pieces up around the border, starting at (0,0) and 
+	// moving up the y-axis, i.e. clockwise
+	if (graveyard_ptr.x == 0 && graveyard_ptr.y < 9) {
+		graveyard_ptr.y++;
+	} else if (graveyard_ptr.y == 9 && graveyard_ptr.x < 9) {
+		graveyard_ptr.x++;
+	} else if (graveyard_ptr.x == 9 && graveyard_ptr.y > 0) {
+		graveyard_ptr.y--;
+	} else if (graveyard_ptr.y == 0 && graveyard_ptr.x > 0) {
+		graveyard_ptr.x--;
+	} 
+	
+	// no more slots available
+	if (graveyard_ptr.x == 0 && graveyard_ptr.y == 0) {
+		graveyard_ptr.x = -1;
+		graveyard_ptr.y = -1;
+	}
+}
+
 /* wrapper for inializing steps queue */
 void step_control_init(void) {init(&steps);}
 /* wrapper for accessing steps queue */
-void add_to_queue(int x, int y) {add(&steps, x, y, NULL);}
+void add_to_queue(int16_t x, int16_t y) {add(&steps, x, y, NULL);}
 /* wrapper for accessing steps queue */
-void add_to_queue_d(int x, int y, done_func d) {add(&steps, x, y, d);}
+void add_to_queue_d(int16_t x, int16_t y, done_func d) {add(&steps, x, y, d);}
 /* wrapper for clearing steps queue */
 void empty_queue(void) {clear_queue(&steps);}
 
 int magnet_on(void) {
 	LOG_TRACE("Turning magnet on");
-	MAGNET_ON;
+	//MAGNET_ON;
 	return 0;
 }
 
@@ -30,7 +75,7 @@ int magnet_off(void) {
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
-	MAGNET_OFF; 
+	//MAGNET_OFF; 
 	return 0;
 }
 
@@ -51,35 +96,47 @@ int set_origin(void) {
 }
 
 /*
- *  move chess piece at x,y to dest_x, dest_y
- *	x, y, dest_x, dest_y are in squares
+ *  move chess piece at (x,y) to (dest_x,dest_y)
+ *	x, y, dest_x, dest_y are in mm
  */
-void move_piece(int x, int y, int dest_x, int dest_y) {
+void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 // goto src
-	 int x_align = SQUARES_TO_MM(x) - get_pos(X); // in mm
-	 int y_align = SQUARES_TO_MM(y) - get_pos(Y);
-	 
+	 int16_t x_align = x - get_pos(X); // in mm // grid[y][x].x - pos.x;
+	 int16_t y_align = y - get_pos(Y); // grid[y][x].y - pos.y;
 	 // move to dst
-	 int x_mm = SQUARES_TO_MM(dest_x - x);
-	 int y_mm = SQUARES_TO_MM(dest_y - y);
+	 int16_t dx = dest_x - x; // grid[dest_y][dest_x].x - grid[y][x].x;
+	 int16_t dy = dest_y - y; // grid[dest_y][dest_x].y - grid[y][x].y;
+	
+	 // int16_t x_off, y_off;
+     // if (x < 9)
+     //     x_off = (grid[y][x].x - grid[y][x+1].x)/2;
+     // else
+     //     x_off = 32;
+     // if (y < 9)
+     //     y_off = (grid[y][x].y - grid[y+1][x].y)/2;
+     // else
+     //     y_off = 32;
 	
 	 add_to_queue_d(x_align, y_align, magnet_on); // goto src
 	 add_to_queue(HALF_SQUARES_TO_MM(1), HALF_SQUARES_TO_MM(1)); // move piece onto line
-	 add_to_queue(x_mm, 0); // move to dest, taxi-cab style
-	 add_to_queue(0, y_mm);
+	 // add_to_queue(x_off, y_off); // move piece onto line
+	 add_to_queue(dx, 0); // move to dest, taxi-cab style
+	 add_to_queue(0, dy);
 	 add_to_queue_d(HALF_SQUARES_TO_MM(-1), HALF_SQUARES_TO_MM(-1), move_done); // stagger off line
+	 // add_to_queue_d(-1*x_off, -1*y_off, move_done); // stagger off line
+     // pos.x = dest_x;
+     // pos.y = dest_y; // update position now
 }
 
-#define SET_COORDS(sx, sy, dx, dy) \
-do { \
-	src_x = move[(sx)]-'a'; \
-	src_y = move[(sy)]-'1'; \
-	dst_x = move[(dx)]-'a'; \
-	dst_y = move[(dy)]-'1'; \
-} while(0)
+/*
+ *  move chess piece at x,y to dest_x, dest_y
+ *	x, y, dest_x, dest_y are in squares
+ */
+void move_piece(uint8_t x, uint8_t y, uint8_t dest_x, uint8_t dest_y) {
+	 move_piece_mm(SQUARES_TO_MM(x), SQUARES_TO_MM(y), SQUARES_TO_MM(dest_x), SQUARES_TO_MM(dest_y));
+}
 
 #define COORD_INVALID(c) ((c) > 7)
-
 /*
  *  Universal Chess Interface (UCI) move
  *  move is in the long algebraic form
@@ -99,37 +156,12 @@ int uci_move(const char *move) {
 	
 	// TODO: add a lot more error checking
 	char src_x, src_y, dst_x, dst_y;
-	char type;
-	char capture = 0;
-	char promote = 0;
 	
-	switch(strlen(move)) {
-		case 4: // ssdd
-			type = 'P';
-			SET_COORDS(0, 1, 2, 3);
-			break;
-		case 5: // Tssdd or ssxdd or ssddP
-			if (move[0] == 'K' || move[0] == 'Q' || move[0] == 'R' || // Tssdd
-				move[0] == 'B' || move[0] == 'N') {
-				type = move[0];
-				SET_COORDS(1, 2, 3, 4);
-			} else if (move[2] == 'x') { // ssxdd
-				capture = 1;
-				type = 'P';
-				SET_COORDS(0, 1, 3, 4);
-			} else { // ssddP
-				promote = move[4];
-				type = 'P';
-				SET_COORDS(0, 1, 2, 3);
-			}
-			break;
-		case 6: // Tssxdd
-			capture = 1;
-			type = move[0];
-			SET_COORDS(1, 2, 4, 5);
-			break;
-		default: // invalid
-			return -1;
+	if(strlen(move) == 4) {
+		SET_COORDS(src_x, src_y, move);
+		SET_COORDS(dst_x, dst_y, move+2);
+	} else {
+		return -1;
 	}
 
 	if (COORD_INVALID(src_x) || COORD_INVALID(src_y) || COORD_INVALID(dst_x) || COORD_INVALID(dst_y))
@@ -138,8 +170,6 @@ int uci_move(const char *move) {
 	move_piece(src_x, src_y, dst_x, dst_y);
 	return 0;
 }
-
-#undef SET_COORDS
 #undef COORD_INVALID
 
 /*
@@ -147,6 +177,7 @@ int uci_move(const char *move) {
  */
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
+	MAGNET_ON;
 	if (!stepping()) {
 		if (current.done) { // run done function
 			current.done();

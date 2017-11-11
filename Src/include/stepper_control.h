@@ -4,8 +4,8 @@
 #include "queue.h"
 
 // chess board constants
-#define SQUARE_WIDTH 64 // mm
-#define SQUARE_HALF_WIDTH 32 // mm
+#define SQUARE_WIDTH 62 // mm
+#define SQUARE_HALF_WIDTH 31 // mm
 #define X_WIDTH_ERR 0 // mm
 #define Y_WIDTH_ERR 2 // mm
 #define LOWER_LIMIT 0-(SQUARE_WIDTH+SQUARE_HALF_WIDTH)// mm
@@ -23,13 +23,27 @@
 #define MAGNET_OFF (GPIOC->ODR &= ~(1 << MAGNET_PIN))
 #define MAGNET_ON (GPIOC->ODR |=  (1 << MAGNET_PIN))
 
+// movement
+#define SET_COORDS(x,y,uci) do {(x)=(uci)[0]-'a'; (y)=(uci)[1]-'1';} while(0)
+#define MOVE_PIECE_TO_GRAVEYARD(x,y,g) do { \
+	get_current_graveyard_slot(&(g));   \
+	move_piece((x), (y), (g).x, (g).y); \
+} while(0)
+
+typedef struct {
+	int16_t y;
+	int16_t x;
+} grid_t;
+
 // func definitions
+void get_current_graveyard_slot(grid_t *slot);
 void step_control_init(void);
 void step_squares(int axis, int n);
-void move_piece(int x, int y, int dest_x, int dest_y);
+void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
+void move_piece(uint8_t x, uint8_t y, uint8_t dest_x, uint8_t dest_y);
 int  uci_move(const char *move);
-void add_to_queue(int x, int y);
-void add_to_queue_d(int x, int y, done_func d);
+void add_to_queue(int16_t x, int16_t y);
+void add_to_queue_d(int16_t x, int16_t y, done_func d);
 void empty_queue(void);
 int magnet_on(void);
 int magnet_off(void);

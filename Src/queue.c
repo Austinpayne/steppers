@@ -25,7 +25,7 @@ void init(tuple_queue_t *q) {
 /*
  *	add tuple (x, y) to end of queue 
  */
-unsigned char add(tuple_queue_t *q, int x, int y, done_func d) {
+unsigned char add(tuple_queue_t *q, int16_t x, int16_t y, done_func d) {
 	if(!is_full(q) && ( // queue not full and
 		 (x != 0 && y != 0) || // x,y are both non-zero
 		 (x == 0 && y != 0) || // or x is zero but y is non-zero
