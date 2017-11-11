@@ -14,17 +14,22 @@ unsigned long systime = 0;
 grid_t pos = {0,0}; // magnet position in grid
 grid_t graveyard_ptr = {0,0}; // grid i,j of next captured piece
 grid_t grid[10][10] = { // y,x in mm to each square (from origin)
+/*   x -->
+/* y
+/* |
+/* V
+ */
 /*		0         1			2		   3		  4			 5			6		   7		  8			 9		  */
-/* 0 */ {{0,0},   {0,64},   {0,128},   {0,192},   {0,256},   {0,320},   {0,384},   {0,448},   {0,512},   {0,576}},
-/* 1 */ {{64,0},  {64,64},  {64,128},  {64,192},  {64,256},  {64,320},  {64,384},  {64,448},  {64,512},  {64,576}},
-/* 2 */	{{128,0}, {128,64}, {128,128}, {128,192}, {128,256}, {128,320}, {128,384}, {128,448}, {128,512}, {128,576}},
-/* 3 */	{{192,0}, {192,64}, {192,128}, {192,192}, {192,256}, {192,320}, {192,384}, {192,448}, {192,512}, {192,576}},
-/* 4 */	{{256,0}, {256,64}, {256,128}, {256,192}, {256,256}, {256,320}, {256,384}, {256,448}, {256,512}, {256,576}},
-/* 5 */	{{320,0}, {320,64}, {320,128}, {320,192}, {320,256}, {320,320}, {320,384}, {320,448}, {320,512}, {320,576}},
-/* 6 */	{{384,0}, {384,64}, {384,128}, {384,192}, {384,256}, {384,320}, {384,384}, {384,448}, {384,512}, {384,576}},
-/* 7 */	{{448,0}, {448,64}, {448,128}, {448,192}, {448,256}, {448,320}, {448,384}, {448,448}, {448,512}, {448,576}},
-/* 8 */	{{512,0}, {512,64}, {512,128}, {512,192}, {512,256}, {512,320}, {512,384}, {512,448}, {512,512}, {512,576}},
-/* 9 */	{{576,0}, {576,64}, {576,128}, {576,192}, {576,256}, {576,320}, {576,384}, {576,448}, {576,512}, {576,576}},
+/* 0 */ {{0,0},   {0,68},    {0,133},   {0,196},   {0,259},   {0,322},   {0,386},   {0,450},   {0,513},   {0,577}},
+/* 1 */ {{63,0},  {63,68},  {63,133},  {63,197},  {63,260},  {63,323},  {63,386},  {63,449},  {63,512},  {63,576}},
+/* 2 */	{{128,0}, {126,64}, {128,128}, {128,192}, {128,256}, {128,320}, {128,384}, {128,448}, {128,512}, {128,576}},
+/* 3 */	{{190,0}, {189,64}, {192,128}, {192,192}, {192,256}, {192,320}, {192,384}, {192,448}, {192,512}, {192,576}},
+/* 4 */	{{254,0}, {252,64}, {256,128}, {256,192}, {256,256}, {256,320}, {256,384}, {256,448}, {256,512}, {256,576}},
+/* 5 */	{{317,0}, {315,64}, {320,128}, {320,192}, {320,256}, {320,320}, {320,384}, {320,448}, {320,512}, {320,576}},
+/* 6 */	{{383,0}, {378,64}, {384,128}, {384,192}, {384,256}, {384,320}, {384,384}, {384,448}, {384,512}, {384,576}},
+/* 7 */	{{449,0}, {443,64}, {448,128}, {448,192}, {448,256}, {448,320}, {448,384}, {448,448}, {448,512}, {448,576}},
+/* 8 */	{{512,0}, {506,64}, {512,128}, {512,192}, {512,256}, {512,320}, {512,384}, {512,448}, {512,512}, {512,576}},
+/* 9 */	{{572,0}, {572,64}, {576,128}, {576,192}, {576,256}, {576,320}, {576,384}, {576,448}, {576,512}, {576,576}},
 };
 
 // returns where the next captured should go in slot.x and slot.y
@@ -68,7 +73,7 @@ int magnet_on(void) {
 	LOG_TRACE("Turning magnet on");
 	//MAGNET_ON;
 	return 0;
-}
+} 
 
 int magnet_off(void) {
 	LOG_TRACE("Turning magnet off");
@@ -87,6 +92,7 @@ int move_done(void) {
 
 int set_origin(void) {
 	step_reset();
+	pos.x = pos.y = 0;
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
@@ -95,37 +101,52 @@ int set_origin(void) {
 	return 0;
 }
 
+void debug_move(int16_t x, int16_t y) {
+	LOG_TRACE("debug_move");
+	LOG_TRACE("get_pos(X)=%d, get_pos(Y)=%d", get_pos(X), get_pos(Y));
+	LOG_TRACE("pos.x=%d, pos.y=%d", pos.x, pos.y);
+	LOG_TRACE("grid[y][x].x=%d, grid[y][x].y=%d", grid[y][x].x, grid[y][x].y);
+	int16_t dest_x = grid[y][x].x - get_pos(X);
+	int16_t dest_y = grid[y][x].y - get_pos(Y);
+	LOG_TRACE("dest_x=%d, dest_y=%d", dest_x, dest_y);
+	add_to_queue_d(dest_x-(2*x), 0, magnet_off); // goto src
+	add_to_queue_d(0, dest_y-(2*y), magnet_off); // goto src
+	pos.x = x;
+    pos.y = y; // update position now
+}
+
 /*
  *  move chess piece at (x,y) to (dest_x,dest_y)
  *	x, y, dest_x, dest_y are in mm
  */
 void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
+	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
 	 // goto src
-	 int16_t x_align = x - get_pos(X); // in mm // grid[y][x].x - pos.x;
-	 int16_t y_align = y - get_pos(Y); // grid[y][x].y - pos.y;
+	 int16_t x_align = grid[y][x].x - pos.x;
+	 int16_t y_align = grid[y][x].y - pos.y;
 	 // move to dst
-	 int16_t dx = dest_x - x; // grid[dest_y][dest_x].x - grid[y][x].x;
-	 int16_t dy = dest_y - y; // grid[dest_y][dest_x].y - grid[y][x].y;
+	 int16_t dx = grid[dest_y][dest_x].x - grid[y][x].x;
+	 int16_t dy = grid[dest_y][dest_x].y - grid[y][x].y;
 	
-	 // int16_t x_off, y_off;
-     // if (x < 9)
-     //     x_off = (grid[y][x].x - grid[y][x+1].x)/2;
-     // else
-     //     x_off = 32;
-     // if (y < 9)
-     //     y_off = (grid[y][x].y - grid[y+1][x].y)/2;
-     // else
-     //     y_off = 32;
-	
+	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
+	 int16_t x_off, y_off;
+     if (x < 9)
+         x_off = (grid[y][x].x - grid[y][x+1].x)/2;
+     else
+         x_off = 32;
+     if (y < 9)
+         y_off = (grid[y][x].y - grid[y+1][x].y)/2;
+     else
+         y_off = 32;
+	 
+	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
 	 add_to_queue_d(x_align, y_align, magnet_on); // goto src
-	 add_to_queue(HALF_SQUARES_TO_MM(1), HALF_SQUARES_TO_MM(1)); // move piece onto line
-	 // add_to_queue(x_off, y_off); // move piece onto line
+	 add_to_queue(x_off, y_off); // move piece onto line
 	 add_to_queue(dx, 0); // move to dest, taxi-cab style
 	 add_to_queue(0, dy);
-	 add_to_queue_d(HALF_SQUARES_TO_MM(-1), HALF_SQUARES_TO_MM(-1), move_done); // stagger off line
-	 // add_to_queue_d(-1*x_off, -1*y_off, move_done); // stagger off line
-     // pos.x = dest_x;
-     // pos.y = dest_y; // update position now
+	 add_to_queue_d(-1*x_off, -1*y_off, move_done); // stagger off line
+     pos.x = dest_x;
+     pos.y = dest_y; // update position now
 }
 
 /*
@@ -167,7 +188,7 @@ int uci_move(const char *move) {
 	if (COORD_INVALID(src_x) || COORD_INVALID(src_y) || COORD_INVALID(dst_x) || COORD_INVALID(dst_y))
 		return -1;
 	
-	move_piece(src_x, src_y, dst_x, dst_y);
+	move_piece_mm(src_x, src_y, dst_x, dst_y);
 	return 0;
 }
 #undef COORD_INVALID
@@ -177,7 +198,6 @@ int uci_move(const char *move) {
  */
 void TIM2_IRQHandler(void) {
 	// if not stepping, get next step from queue
-	MAGNET_ON;
 	if (!stepping()) {
 		if (current.done) { // run done function
 			current.done();

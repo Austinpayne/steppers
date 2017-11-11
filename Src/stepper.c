@@ -29,15 +29,11 @@ void step_reset(void) {
  */
 void stop_axis(int axis) {
 	if (axis == X) {
-		x_step = OFF;
-		//set_dir(X, 0);
 		X_PWM = 0;
-		//SLEEP(X);
+		x_step = OFF;
 	} else if (axis == Y) {
-		y_step = OFF;
-		//set_dir(Y, 0);
 		Y_PWM = 0;
-		//SLEEP(Y);
+		y_step = OFF;
 	}
 }
 

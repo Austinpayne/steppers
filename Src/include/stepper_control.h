@@ -9,9 +9,9 @@
 #define X_WIDTH_ERR 0 // mm
 #define Y_WIDTH_ERR 2 // mm
 #define LOWER_LIMIT 0-(SQUARE_WIDTH+SQUARE_HALF_WIDTH)// mm
-#define UPPER_LIMIT (SQUARE_WIDTH*8)+SQUARE_HALF_WIDTH // mm
-#define ORIGIN_X 105 // mm
-#define ORIGIN_Y 100 // mm
+#define UPPER_LIMIT 600 // mm
+#define ORIGIN_X 41 // mm
+#define ORIGIN_Y 25 // mm
 #define CALIBRATION_TIMEOUT 10000 // ms
 
 // macros
@@ -24,7 +24,7 @@
 #define MAGNET_ON (GPIOC->ODR |=  (1 << MAGNET_PIN))
 
 // movement
-#define SET_COORDS(x,y,uci) do {(x)=(uci)[0]-'a'; (y)=(uci)[1]-'1';} while(0)
+#define SET_COORDS(x,y,uci) do {(x)=(uci)[0]-'a'+1; (y)=(uci)[1]-'1'+1;} while(0)
 #define MOVE_PIECE_TO_GRAVEYARD(x,y,g) do { \
 	get_current_graveyard_slot(&(g));   \
 	move_piece((x), (y), (g).x, (g).y); \
@@ -39,6 +39,7 @@ typedef struct {
 void get_current_graveyard_slot(grid_t *slot);
 void step_control_init(void);
 void step_squares(int axis, int n);
+void debug_move(int16_t x, int16_t y);
 void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
 void move_piece(uint8_t x, uint8_t y, uint8_t dest_x, uint8_t dest_y);
 int  uci_move(const char *move);
