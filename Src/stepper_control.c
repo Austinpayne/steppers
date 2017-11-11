@@ -71,7 +71,7 @@ void empty_queue(void) {clear_queue(&steps);}
 
 int magnet_on(void) {
 	LOG_TRACE("Turning magnet on");
-	//MAGNET_ON;
+	MAGNET_ON;
 	return 0;
 } 
 
@@ -80,7 +80,8 @@ int magnet_off(void) {
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
-	//MAGNET_OFF; 
+	//HAL_Delay(100);
+	MAGNET_OFF; 
 	return 0;
 }
 
@@ -122,11 +123,11 @@ void debug_move(int16_t x, int16_t y) {
 void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
 	 // goto src
-	 int16_t x_align = grid[y][x].x - pos.x;
-	 int16_t y_align = grid[y][x].y - pos.y;
+	 int16_t x_align = grid[y][x].x - get_pos(X);
+	 int16_t y_align = grid[y][x].y - get_pos(Y);
 	 // move to dst
-	 int16_t dx = grid[dest_y][dest_x].x - grid[y][x].x;
-	 int16_t dy = grid[dest_y][dest_x].y - grid[y][x].y;
+	 int16_t dx = (grid[dest_y][dest_x].x - grid[y][x].x)-(2*dest_x);
+	 int16_t dy = (grid[dest_y][dest_x].y - grid[y][x].y)-(2*dest_y);
 	
 	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
 	 int16_t x_off, y_off;
@@ -140,13 +141,14 @@ void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
          y_off = 32;
 	 
 	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
-	 add_to_queue_d(x_align, y_align, magnet_on); // goto src
-	 add_to_queue(x_off, y_off); // move piece onto line
+	 add_to_queue(x_align, 0); // goto src
+	 add_to_queue_d(0, y_align, magnet_on); // goto src
+	 add_to_queue(x_off, 0); // move piece onto line
+	 add_to_queue(0, y_off); // move piece onto line
 	 add_to_queue(dx, 0); // move to dest, taxi-cab style
 	 add_to_queue(0, dy);
-	 add_to_queue_d(-1*x_off, -1*y_off, move_done); // stagger off line
-     pos.x = dest_x;
-     pos.y = dest_y; // update position now
+	 add_to_queue(-1*x_off, 0); // stagger off line
+	 add_to_queue_d(0, -1*y_off, move_done); // stagger off line
 }
 
 /*
