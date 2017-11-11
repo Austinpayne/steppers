@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define SIZE 128 // proabably needs to be bigger
+#define SIZE 32 // proabably needs to be bigger
 #define INCREMENT(q,s) (q)->s = ((q)->s == &(q->queue[SIZE-1])) ? (q)->queue : (q)->s+1
 
 typedef int (*done_func)(void);

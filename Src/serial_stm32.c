@@ -67,8 +67,15 @@ int do_move_piece(char *params) {
 			//MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard);
 			/* FALLTHROUGH */
 		case 1: // normal move
-			LOG_TRACE("moving piece at %s", p_arr[0]);
-			ret = (uci_move(p_arr[0]) >= 0) ? 0 : -1;
+			if (strlen(p_arr[0]) == 2) { // debug move
+				int16_t dbg_x = p_arr[0][0]-'0';
+				int16_t dbg_y = p_arr[0][1]-'0';
+				LOG_TRACE("moving to (%d,%d)", dbg_x, dbg_y);
+				debug_move(dbg_x, dbg_y);
+			} else {
+				LOG_TRACE("moving piece at %s", p_arr[0]);
+				ret = (uci_move(p_arr[0]) >= 0) ? 0 : -1;
+			}
 			break;
 		default:
 			break;
