@@ -50,7 +50,6 @@
 char rx_char;
 char rx_buffer[SERIAL_BUFF_SIZE];
 int irx = 0;
-extern uint16_t biases[64][64];
 
 /* USER CODE END Includes */
 
@@ -299,7 +298,7 @@ int main(void)
   cal_switches_init();
   //calibrate();
   cal_interrupt_init();
-  sys_init();
+  //sys_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   LOG_INFO("system ready");
@@ -321,7 +320,7 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	pseudo_main();
+	//pseudo_main();
 	__WFI();
   }
   /* USER CODE END 3 */
