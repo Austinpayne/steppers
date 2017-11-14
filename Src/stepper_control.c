@@ -8,7 +8,6 @@
 tuple_queue_t steps; // in mm (makes stepping half squares more accurate)
 tuple_t current = {0,0,NULL}; // current step tuple
 unsigned char cal = 0; // calibration flag
-unsigned long systime = 0;
 
 // mapping of squares to mm for stepper driver
 #define N 10
@@ -119,11 +118,11 @@ void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	
 	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
 	 int16_t x_off, y_off;
-     if (x < 9)
+     if (x < N-1)
          x_off = (grid[y][x].x - grid[y][x+1].x)/2;
      else
          x_off = 32;
-     if (y < 9)
+     if (y < N-1)
          y_off = (grid[y][x].y - grid[y+1][x].y)/2;
      else
          y_off = 32;
@@ -203,8 +202,8 @@ unsigned char calibrating(void) {
 int calibrate(void) {
 	// step until hit calibration switches
 	cal = 1;
-	unsigned long timeout = systime + CALIBRATION_TIMEOUT;
-	LOG_TRACE("systime=%ld", systime);
+	uint32_t timeout = HAL_GetTick() + CALIBRATION_TIMEOUT;
+	LOG_TRACE("HAL_GetTick()=%ld", HAL_GetTick());
 	LOG_TRACE("timeout=%ld", timeout);
 	unsigned char x_done = 0;
 	unsigned char y_done = 0;
@@ -222,7 +221,7 @@ int calibrate(void) {
 		} else if (GPIOC->IDR & (1 << Y_CAL)) {
 			stop_axis(Y);
 			y_done = 1;
-		} else if (systime > timeout) { // timeout
+		} else if (HAL_GetTick() > timeout) { // timeout
 			stop_stepping();
 			empty_queue();
 			ret = -1;
@@ -237,7 +236,6 @@ int calibrate(void) {
  *	for user button (kill switch)
  */
 void HAL_SYSTICK_Callback(void) {
-	systime++;
     static uint32_t debouncer = 0;
 	static uint8_t x_debouncer = 0;
 	static uint8_t y_debouncer = 0;
