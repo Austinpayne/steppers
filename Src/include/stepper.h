@@ -49,15 +49,16 @@
 
 // func definitions
 void step_reset(void);
-void stop_axis(int axis);
+void stop_axis(int8_t axis);
 void stop_stepping(void);
 void step(void);
-void stepn(int axis, int n, int dir);
-void step_mm(int axis, int mm);
-void set_dir(int axis, int dir);
-unsigned char axis_stepping(int axis);
+void stepn(int8_t axis, int n, int8_t dir);
+void step_mm_blocking(int x_mm, int y_mm);
+void step_mm(int8_t axis, int mm);
+void set_dir(int8_t axis, int8_t dir);
+unsigned char axis_stepping(int8_t axis);
 unsigned char stepping(void);
-int get_pos(int axis);
+int get_pos(int8_t axis);
 unsigned int abs(int val);
 
 #endif /* __STEPPER_H_ */

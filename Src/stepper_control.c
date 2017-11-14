@@ -1,12 +1,10 @@
+#include <stdint.h>
 #include "stepper.h"
 #include "stepper_control.h"
-#include "queue.h"
 #include "gpio.h"
 #include "serial.h"
 #include "string.h"
 
-tuple_queue_t steps; // in mm (makes stepping half squares more accurate)
-tuple_t current = {0,0,NULL}; // current step tuple
 unsigned char cal = 0; // calibration flag
 
 // mapping of squares to mm for stepper driver
@@ -52,15 +50,6 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 	return -1; // no more slots
 }
 
-/* wrapper for inializing steps queue */
-void step_control_init(void) {init(&steps);}
-/* wrapper for accessing steps queue */
-void add_to_queue(int16_t x, int16_t y) {add(&steps, x, y, NULL);}
-/* wrapper for accessing steps queue */
-void add_to_queue_d(int16_t x, int16_t y, done_func d) {add(&steps, x, y, d);}
-/* wrapper for clearing steps queue */
-void empty_queue(void) {clear_queue(&steps);}
-
 int magnet_on(void) {
 	LOG_TRACE("Turning magnet on");
 	MAGNET_ON;
@@ -100,8 +89,9 @@ void debug_move(int16_t x, int16_t y) {
 	int16_t dest_x = grid[y][x].x - get_pos(X);
 	int16_t dest_y = grid[y][x].y - get_pos(Y);
 	LOG_TRACE("dest_x=%d, dest_y=%d", dest_x, dest_y);
-	add_to_queue_d(dest_x-(2*x), 0, magnet_off); // goto src
-	add_to_queue_d(0, dest_y-(2*y), magnet_off); // goto src
+	magnet_off();
+	step_mm_blocking(dest_x-(2*x), 0); // goto src
+	step_mm_blocking(0, dest_y-(2*y)); // goto src
 }
 
 /*
@@ -111,8 +101,8 @@ void debug_move(int16_t x, int16_t y) {
 void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
 	 // goto src
-	 int16_t x_align = grid[y][x].x - pos.x;
-	 int16_t y_align = grid[y][x].y - pos.y;
+	 int16_t x_align = grid[y][x].x - get_pos(X);
+	 int16_t y_align = grid[y][x].y - get_pos(Y);
 	 // move to dst
 	 int16_t dx = (grid[dest_y][dest_x].x - grid[y][x].x)-(2*dest_x);
 	 int16_t dy = (grid[dest_y][dest_x].y - grid[y][x].y)-(2*dest_y);
@@ -129,17 +119,16 @@ void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
          y_off = 32;
 	 
 	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
-	 add_to_queue(x_align, 0); // goto src
-	 add_to_queue_d(0, y_align, magnet_on); // goto src
-	 add_to_queue(x_off, 0); // move piece onto line
-	 add_to_queue(0, y_off); // move piece onto line
-	 add_to_queue(dx, 0); // move to dest, taxi-cab style
-	 add_to_queue(0, dy);
-	 add_to_queue(-1*x_off, 0); // stagger off line
-	 add_to_queue_d(0, -1*y_off, move_done); // stagger off line
-	 
-	 pos.x = grid[dest_y][dest_x].x;
-	 pos.y = grid[dest_y][dest_x].y;
+	 step_mm_blocking(x_align, 0); // goto src
+	 step_mm_blocking(0, y_align); // goto src
+	 magnet_on();
+	 step_mm_blocking(x_off, 0); // move piece onto line
+	 step_mm_blocking(0, y_off); // move piece onto line
+	 step_mm_blocking(dx, 0); // move to dest, taxi-cab style
+	 step_mm_blocking(0, dy);
+	 step_mm_blocking(-1*x_off, 0); // stagger off line
+	 step_mm_blocking(0, -1*y_off); // stagger off line
+	 move_done();
 }
 
 /*
@@ -176,29 +165,6 @@ int uci_move(const char *move) {
 	return 0;
 }
 
-/*
- *  update event interrupt, controls continous stepping
- */
-void TIM2_IRQHandler(void) {
-	// if not stepping, get next step from queue
-	if (!stepping()) {
-		if (current.done) { // run done function
-			current.done();
-			current.done = NULL;
-		}
-		
-		if (!is_empty(&steps)) {
-			current = rm(&steps);
-		
-			step_mm(X, current.x);
-			step_mm(Y, current.y);
-		}
-	} else {
-		step();
-	}
-	TIM2->SR &= ~(TIM_SR_UIF); // clear interrupt
-}
-
 unsigned char calibrating(void) {
 	return cal;
 }
@@ -212,8 +178,8 @@ int calibrate(void) {
 	unsigned char x_done = 0;
 	unsigned char y_done = 0;
 	int ret = 0;
-	add_to_queue(-2000, -2000);
-	add_to_queue_d(ORIGIN_X, ORIGIN_Y, set_origin);
+	step_mm(X, -2000);
+	step_mm(Y, -2000);
 	
 	LOG_TRACE("beginning calibration...");
 	while (1) {
@@ -227,13 +193,12 @@ int calibrate(void) {
 			y_done = 1;
 		} else if (HAL_GetTick() > timeout) { // timeout
 			stop_stepping();
-			empty_queue();
 			ret = -1;
 			break;
 		}
     }
-	pos.x = 0;
-	pos.y = 0;
+	step_mm_blocking(ORIGIN_X, ORIGIN_Y);
+	set_origin();
 	LOG_TRACE("done calibrating");
 	return ret;
 }
@@ -254,7 +219,6 @@ void HAL_SYSTICK_Callback(void) {
     if(debouncer == 0x7FFFFFFF) {
 		if (stepping()) { // kill switch
 			stop_stepping();
-			empty_queue();
 		} else { // send ok to photon
 			SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 		}
@@ -269,12 +233,9 @@ void HAL_SYSTICK_Callback(void) {
 			if (x_debouncer == 0x7F) {
 				x_debouncer = 0;
 				stop_stepping();
-				empty_queue();
-				//add_to_queue(SQUARE_HALF_WIDTH, 0);
 			}
 			if (get_pos(X) < LOWER_LIMIT || get_pos(X) > UPPER_LIMIT) {
 				stop_stepping();
-				empty_queue();
 			}
 		}
 		
@@ -286,12 +247,9 @@ void HAL_SYSTICK_Callback(void) {
 			if (y_debouncer == 0x7F) {
 				y_debouncer = 0;
 				stop_stepping();
-				empty_queue();
-				//add_to_queue(0, SQUARE_HALF_WIDTH);
 			}
 			if (get_pos(Y) < LOWER_LIMIT || get_pos(Y) > UPPER_LIMIT) {
 				stop_stepping();
-				empty_queue();
 			}
 		}
 	}

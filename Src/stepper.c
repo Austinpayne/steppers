@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "stepper.h"
 #include "gpio.h"
 
@@ -6,8 +7,8 @@ static int x_step; // current steps to take
 static int y_step;
 static int x_pos;  // global position on axis (in steps)
 static int y_pos;
-static int x_dir;  // unit to add/subtract (for position, either +1 or -1)
-static int y_dir;
+static int8_t x_dir;  // unit to add/subtract (for position, either +1 or -1)
+static int8_t y_dir;
 
 /*
  *	initialize step counters and position
@@ -27,7 +28,7 @@ void step_reset(void) {
  *	stops the axis by turning off axis PWM,
  *  and putting the motor driver into sleep mode
  */
-void stop_axis(int axis) {
+void stop_axis(int8_t axis) {
 	if (axis == X) {
 		X_PWM = 0;
 		x_step = OFF;
@@ -65,7 +66,7 @@ void step(void) {
 /*
 	Rotate n steps
 */
-void stepn(int axis, int n, int dir) {
+void stepn(int8_t axis, int n, int8_t dir) {
 	// don't step if currently stepping
 	if (axis == X && x_step == OFF) {
 		x_step = n-1;
@@ -81,12 +82,20 @@ void stepn(int axis, int n, int dir) {
 	}	
 }
 
+void step_mm_blocking(int x_mm, int y_mm) {
+	step_mm(X, x_mm);
+	step_mm(Y, y_mm);
+	while (stepping()) {
+		HAL_Delay(10);
+	}
+}
+
 /*
  *	set internal step count
  *  set axis direction by passing + or - mm
  *  + for clockwise, - for counter-clockwise
  */
-void step_mm(int axis, int mm) {
+void step_mm(int8_t axis, int mm) {
 	int dir;
 	if (mm > 0) {
 		dir = CW;
@@ -105,7 +114,7 @@ void step_mm(int axis, int mm) {
 /*
  *	Set direction of axis
  */
-void set_dir(int axis, int dir) {
+void set_dir(int8_t axis, int8_t dir) {
 	if (axis == X) {
 		if (dir == CW) {
 			x_dir = 1;
@@ -126,7 +135,7 @@ void set_dir(int axis, int dir) {
 /*
  *	get current axis steps
  */
-unsigned char axis_stepping(int axis) {
+unsigned char axis_stepping(int8_t axis) {
     if (axis == X)
 	    return (x_step == OFF ? 0 : 1);
     else
@@ -142,7 +151,7 @@ unsigned char stepping(void) {
 /*
  *	return current axis position, in mm
  */
-int get_pos(int axis) {
+int get_pos(int8_t axis) {
 	return (axis == X ? STEPS_TO_MM(x_pos) : STEPS_TO_MM(y_pos));
 }
 
@@ -151,4 +160,12 @@ int get_pos(int axis) {
  */
 unsigned int abs(int val) {
 	return (val < 0 ? -val : val);
+}
+
+/*
+ *  update event interrupt, controls continous stepping
+ */
+void TIM2_IRQHandler(void) {
+	step();
+	TIM2->SR &= ~(TIM_SR_UIF); // clear interrupt
 }

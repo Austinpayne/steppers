@@ -257,7 +257,6 @@ int main(void)
   button_init();
   timer_init();
   output_init();
-  step_control_init();
   cal_switches_init();
   //calibrate();
   cal_interrupt_init();
