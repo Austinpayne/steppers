@@ -1,8 +1,6 @@
 #ifndef __STEPPER_CTRL_H_
 #define __STEPPER_CTRL_H_
 
-#include "queue.h"
-
 // chess board constants
 #define SQUARE_WIDTH 62 // mm
 #define SQUARE_HALF_WIDTH 31 // mm
@@ -45,9 +43,6 @@ void step_squares(int axis, int n);
 void debug_move(int16_t x, int16_t y);
 void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
 int  uci_move(const char *move);
-void add_to_queue(int16_t x, int16_t y);
-void add_to_queue_d(int16_t x, int16_t y, done_func d);
-void empty_queue(void);
 int magnet_on(void);
 int magnet_off(void);
 int move_done(void);
