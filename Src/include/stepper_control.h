@@ -25,9 +25,12 @@
 
 // movement
 #define SET_COORDS(x,y,uci) do {(x)=(uci)[0]-'a'+1; (y)=(uci)[1]-'1'+1;} while(0)
-#define MOVE_PIECE_TO_GRAVEYARD(x,y,g) do { \
-	get_current_graveyard_slot(&(g));   \
-	move_piece((x), (y), (g).x, (g).y); \
+#define COORD_INVALID(c) ((c) < 1 || (c) > 8)
+#define MOVE_PIECE_TO_GRAVEYARD(x,y,g,c) do { \
+	if ((c) == 'w' || (c) == 'b') { \
+		get_current_graveyard_slot(&(g), (c));   \
+		move_piece((x), (y), (g).x, (g).y); \
+	} \
 } while(0)
 
 typedef struct {
@@ -36,12 +39,11 @@ typedef struct {
 } grid_t;
 
 // func definitions
-void get_current_graveyard_slot(grid_t *slot);
+int get_current_graveyard_slot(grid_t *slot, char color);
 void step_control_init(void);
 void step_squares(int axis, int n);
 void debug_move(int16_t x, int16_t y);
-void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
-void move_piece(uint8_t x, uint8_t y, uint8_t dest_x, uint8_t dest_y);
+void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
 int  uci_move(const char *move);
 void add_to_queue(int16_t x, int16_t y);
 void add_to_queue_d(int16_t x, int16_t y, done_func d);
