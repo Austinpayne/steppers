@@ -21,7 +21,7 @@
 // magnet
 #define MAGNET_PIN 0 // GPIOC
 #define MAGNET_OFF (GPIOC->ODR &= ~(1 << MAGNET_PIN))
-#define MAGNET_ON (GPIOC->ODR |=  (1 << MAGNET_PIN))
+#define MAGNET_ON (GPIOC->ODR  |=  (1 << MAGNET_PIN))
 
 // movement
 #define SET_COORDS(x,y,uci) do {(x)=(uci)[0]-'a'+1; (y)=(uci)[1]-'1'+1;} while(0)

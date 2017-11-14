@@ -30,6 +30,7 @@ grid_t grid[N][N] = { // y,x in mm to each square (from origin)
 };
 uint8_t w_offset = 0; // graveyard offset, in square or on line
 uint8_t b_offset = 0;
+grid_t pos = {0,0};
 
 // sets slot.x and slot.y to where the captured piece should go in graveyard
 // returns 0 if slot is available, -1 if there are no more slots
@@ -110,8 +111,8 @@ void debug_move(int16_t x, int16_t y) {
 void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
 	 // goto src
-	 int16_t x_align = grid[y][x].x - get_pos(X);
-	 int16_t y_align = grid[y][x].y - get_pos(Y);
+	 int16_t x_align = grid[y][x].x - pos.x;
+	 int16_t y_align = grid[y][x].y - pos.y;
 	 // move to dst
 	 int16_t dx = (grid[dest_y][dest_x].x - grid[y][x].x)-(2*dest_x);
 	 int16_t dy = (grid[dest_y][dest_x].y - grid[y][x].y)-(2*dest_y);
@@ -136,6 +137,9 @@ void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 add_to_queue(0, dy);
 	 add_to_queue(-1*x_off, 0); // stagger off line
 	 add_to_queue_d(0, -1*y_off, move_done); // stagger off line
+	 
+	 pos.x = grid[dest_y][dest_x].x;
+	 pos.y = grid[dest_y][dest_x].y;
 }
 
 /*
@@ -228,6 +232,8 @@ int calibrate(void) {
 			break;
 		}
     }
+	pos.x = 0;
+	pos.y = 0;
 	LOG_TRACE("done calibrating");
 	return ret;
 }
