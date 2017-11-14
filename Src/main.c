@@ -44,7 +44,7 @@
 
 
 //#define CAL_PRIORITY  0
-#define STEP_PRIORITY 0
+#define STEP_PRIORITY 1
 #define SERIAL_BUFF_SIZE 64
 
 char rx_char;
@@ -183,43 +183,6 @@ void cal_interrupt_init(void) {
 	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
 	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
 }
-
-#if 0
-/*
- *	calibration switches
- *  (broken, for some reason needs two clicks)
- */
-void EXTI4_15_IRQHandler(void) {
-	static uint8_t x_debouncer = 0;
-	static uint8_t y_debouncer = 0;
-    
-    x_debouncer = (x_debouncer << 1);
-    if (GPIOC->IDR & (1 << X_CAL)) {
-		stop_stepping();
-        //x_debouncer |= 0x1;
-    }
-	y_debouncer = (y_debouncer << 1);
-    if (GPIOC->IDR & (1 << Y_CAL)) {
-		stop_stepping();
-        //y_debouncer |= 0x1;
-    }
-	
-	if (x_debouncer == 0x7F) {
-		//x_debouncer = 0;
-		stop_stepping();
-		empty_queue();
-		//sadd_to_queue(SQUARE_HALF_WIDTH, 0);
-		EXTI->PR |= (1 << X_CAL); // clear flag
-	} 
-	if (y_debouncer == 0x7F) {
-		//y_debouncer = 0;
-		stop_stepping();
-		empty_queue();
-		//add_to_queue(0, SQUARE_HALF_WIDTH);
-		EXTI->PR |= (1 << Y_CAL);
-	}
-}
-#endif
 
 void sys_init(){
 	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
