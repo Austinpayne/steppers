@@ -13,6 +13,16 @@ int do_end_turn(char *params) {
     return -1;
 }
 
+static char get_color(char *flags) {
+	if (strchr(flags, 'w')) {
+		return 'w';
+	} else if (strchr(flags, 'b')) {
+		return 'b';
+	} else {
+		return 0;
+	}
+}
+
 /*
  *  moves pieces around board, in general the format is:
  *	move,flags,extra_move
@@ -28,13 +38,14 @@ int do_end_turn(char *params) {
 int do_move_piece(char *params) {
 	#define MAX_PARAMS 3
 	int ret = -1;
-	char x, y;
+	char x, y, color;
 	grid_t graveyard;
 	char *p_arr[MAX_PARAMS] = {NULL};
 	int num_params;
 	num_params = parse_params(params, p_arr, MAX_PARAMS);
 	switch (num_params) {
 		case 3:
+			color = get_color(p_arr[1]);
 			if (strchr(p_arr[1], 'k')) { // castling
 				LOG_TRACE("castling move, moving %s...", p_arr[0]);
 				uci_move(p_arr[0]); // move king
@@ -44,18 +55,18 @@ int do_move_piece(char *params) {
 				LOG_TRACE("en passant move, moving %s to graveyard", p_arr[2]);
 				// move passed piece to graveyard
 				SET_COORDS(x, y, p_arr[2]);
-				//MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard);
+				MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, color);
 				uci_move(p_arr[0]);
 			} else if (strchr(p_arr[1], 'p')) { // promotion
 				LOG_TRACE("promoting %.2s to a %s at %s", p_arr[0], p_arr[2], p_arr[0]+2);
 				// move pawn at 'from' to graveyard
 				SET_COORDS(x, y, p_arr[0]);
-				//MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard);
+				MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, color);
 				SET_COORDS(x, y, p_arr[0]+2);
 				if (strchr(p_arr[1], 'c')) {
 					// move captured piece at 'to' to graveyard
 					LOG_TRACE("capturing %s as well", p_arr[0]+2);
-					//MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard);
+					MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, color);
 				}
 				// move promoted piece to 'to'
 			}
@@ -64,7 +75,7 @@ int do_move_piece(char *params) {
 			// move captured piece at 'to' to graveyard
 			LOG_TRACE("capture move, moving %s to graveyard", p_arr[0]+2);
 			SET_COORDS(x, y, p_arr[0]+2);
-			//MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard);
+			MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, get_color(p_arr[1]));
 			/* FALLTHROUGH */
 		case 1: // normal move
 			if (strlen(p_arr[0]) == 2) { // debug move

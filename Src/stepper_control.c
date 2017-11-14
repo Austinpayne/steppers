@@ -11,14 +11,12 @@ unsigned char cal = 0; // calibration flag
 unsigned long systime = 0;
 
 // mapping of squares to mm for stepper driver
-grid_t pos = {0,0}; // magnet position in grid
-grid_t graveyard_ptr = {0,0}; // grid i,j of next captured piece
-grid_t grid[10][10] = { // y,x in mm to each square (from origin)
-/*   x -->
-/* y
-/* |
-/* V
- */
+#define N 10
+grid_t grid[N][N] = { // y,x in mm to each square (from origin)
+//   x -->
+// y
+// |
+// V
 /*		0         1			2		   3		  4			 5			6		   7		  8			 9		  */
 /* 0 */ {{0,0},   {0,68},    {0,133},   {0,196},   {0,259},   {0,322},   {0,386},   {0,450},   {0,513},   {0,577}},
 /* 1 */ {{63,0},  {63,68},  {63,133},  {63,197},  {63,260},  {63,323},  {63,386},  {63,449},  {63,512},  {63,576}},
@@ -31,33 +29,27 @@ grid_t grid[10][10] = { // y,x in mm to each square (from origin)
 /* 8 */	{{512,0}, {506,64}, {512,128}, {512,192}, {512,256}, {512,320}, {512,384}, {512,448}, {512,512}, {512,576}},
 /* 9 */	{{572,0}, {572,64}, {576,128}, {576,192}, {576,256}, {576,320}, {576,384}, {576,448}, {576,512}, {576,576}},
 };
+uint8_t w_offset = 0; // graveyard offset, in square or on line
+uint8_t b_offset = 0;
 
-// returns where the next captured should go in slot.x and slot.y
-// if slot.x and slot.y are -1, there are no more available slots
-void get_current_graveyard_slot(grid_t *slot) {
-	slot->x = graveyard_ptr.x;
-	slot->y = graveyard_ptr.y;
+// sets slot.x and slot.y to where the captured piece should go in graveyard
+// returns 0 if slot is available, -1 if there are no more slots
+int get_current_graveyard_slot(grid_t *slot, char color) {
+	uint8_t *offset = color == 'w' ? &w_offset : &b_offset;
 	
-	if (graveyard_ptr.x == -1 || graveyard_ptr.y == -1)
-		return;
-	
-	// fills pieces up around the border, starting at (0,0) and 
-	// moving up the y-axis, i.e. clockwise
-	if (graveyard_ptr.x == 0 && graveyard_ptr.y < 9) {
-		graveyard_ptr.y++;
-	} else if (graveyard_ptr.y == 9 && graveyard_ptr.x < 9) {
-		graveyard_ptr.x++;
-	} else if (graveyard_ptr.x == 9 && graveyard_ptr.y > 0) {
-		graveyard_ptr.y--;
-	} else if (graveyard_ptr.y == 0 && graveyard_ptr.x > 0) {
-		graveyard_ptr.x--;
-	} 
-	
-	// no more slots available
-	if (graveyard_ptr.x == 0 && graveyard_ptr.y == 0) {
-		graveyard_ptr.x = -1;
-		graveyard_ptr.y = -1;
+	if (*offset < (N*2)-1) {
+		grid_t *graveyard_ptr = color == 'w' ? &(grid[0][0])+(N*(w_offset/2)) : &(grid[0][N-1])+(N*(b_offset/2));
+		if (*offset % 2 == 0) { // in square
+			slot->x = graveyard_ptr->x;
+			slot->y = graveyard_ptr->y;
+		} else { // on line
+			slot->x = ((graveyard_ptr+N)->x - graveyard_ptr->x)/2;
+			slot->y = ((graveyard_ptr+N)->y - graveyard_ptr->y)/2;
+		}
+		*offset += 1;
+		return 0;
 	}
+	return -1; // no more slots
 }
 
 /* wrapper for inializing steps queue */
@@ -93,7 +85,6 @@ int move_done(void) {
 
 int set_origin(void) {
 	step_reset();
-	pos.x = pos.y = 0;
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
@@ -105,22 +96,19 @@ int set_origin(void) {
 void debug_move(int16_t x, int16_t y) {
 	LOG_TRACE("debug_move");
 	LOG_TRACE("get_pos(X)=%d, get_pos(Y)=%d", get_pos(X), get_pos(Y));
-	LOG_TRACE("pos.x=%d, pos.y=%d", pos.x, pos.y);
 	LOG_TRACE("grid[y][x].x=%d, grid[y][x].y=%d", grid[y][x].x, grid[y][x].y);
 	int16_t dest_x = grid[y][x].x - get_pos(X);
 	int16_t dest_y = grid[y][x].y - get_pos(Y);
 	LOG_TRACE("dest_x=%d, dest_y=%d", dest_x, dest_y);
 	add_to_queue_d(dest_x-(2*x), 0, magnet_off); // goto src
 	add_to_queue_d(0, dest_y-(2*y), magnet_off); // goto src
-	pos.x = x;
-    pos.y = y; // update position now
 }
 
 /*
  *  move chess piece at (x,y) to (dest_x,dest_y)
  *	x, y, dest_x, dest_y are in mm
  */
-void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
+void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
 	 // goto src
 	 int16_t x_align = grid[y][x].x - get_pos(X);
@@ -152,15 +140,6 @@ void move_piece_mm(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 }
 
 /*
- *  move chess piece at x,y to dest_x, dest_y
- *	x, y, dest_x, dest_y are in squares
- */
-void move_piece(uint8_t x, uint8_t y, uint8_t dest_x, uint8_t dest_y) {
-	 move_piece_mm(SQUARES_TO_MM(x), SQUARES_TO_MM(y), SQUARES_TO_MM(dest_x), SQUARES_TO_MM(dest_y));
-}
-
-#define COORD_INVALID(c) ((c) > 7)
-/*
  *  Universal Chess Interface (UCI) move
  *  move is in the long algebraic form
  *	i.e.: [type][src_file][src_rank][x]?[dst_file][dst_rank][promotion_type]?
@@ -178,7 +157,7 @@ void move_piece(uint8_t x, uint8_t y, uint8_t dest_x, uint8_t dest_y) {
 int uci_move(const char *move) {
 	
 	// TODO: add a lot more error checking
-	char src_x, src_y, dst_x, dst_y;
+	uint8_t src_x, src_y, dst_x, dst_y;
 	
 	if(strlen(move) == 4) {
 		SET_COORDS(src_x, src_y, move);
@@ -190,10 +169,9 @@ int uci_move(const char *move) {
 	if (COORD_INVALID(src_x) || COORD_INVALID(src_y) || COORD_INVALID(dst_x) || COORD_INVALID(dst_y))
 		return -1;
 	
-	move_piece_mm(src_x, src_y, dst_x, dst_y);
+	move_piece(src_x, src_y, dst_x, dst_y);
 	return 0;
 }
-#undef COORD_INVALID
 
 /*
  *  update event interrupt, controls continous stepping
