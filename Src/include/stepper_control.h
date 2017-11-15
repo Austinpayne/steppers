@@ -26,9 +26,30 @@
 #define COORD_INVALID(c) ((c) < 1 || (c) > 8)
 #define MOVE_PIECE_TO_GRAVEYARD(x,y,g,c) do { \
 	if ((c) == 'w' || (c) == 'b') { \
-		get_current_graveyard_slot(&(g), (c));   \
-		move_piece((x), (y), (g).x, (g).y); \
+		get_current_graveyard_slot(&(g), (c)); \
+		move_piece_to_mm((x), (y), (g).x, (g).y); \
 	} \
+} while(0)
+#define TAXI_CAB_MOVE(sx,sy,ox,oy,dx,dy) do { \
+	step_mm_blocking((sx), 0); \
+	step_mm_blocking(0, (sy)); \
+	magnet_on(); \
+	step_mm_blocking((ox), (oy)); \
+	step_mm_blocking((dx), 0); \
+	step_mm_blocking(0, (dy)); \
+	step_mm_blocking(-1*(ox), -1*(oy)); \
+	move_done(); \
+} while(0)
+#define DIFF_MM(dst,src) ((dst) - (src))
+#define SET_OFFSET(ox,oy) do { \
+	if (x < N-1) \
+		ox = (grid[y][x].x - grid[y][x+1].x)/2; \
+	else \
+		ox = 32; \
+	if (y < N-1) \
+		oy = (grid[y][x].y - grid[y+1][x].y)/2; \
+	else \
+		oy = 32; \
 } while(0)
 
 typedef struct {
@@ -41,6 +62,7 @@ int get_current_graveyard_slot(grid_t *slot, char color);
 void step_control_init(void);
 void step_squares(int axis, int n);
 void debug_move(int16_t x, int16_t y);
+void move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y);
 void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
 int  uci_move(const char *move);
 int magnet_on(void);

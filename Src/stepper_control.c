@@ -28,7 +28,6 @@ grid_t grid[N][N] = { // y,x in mm to each square (from origin)
 };
 uint8_t w_offset = 0; // graveyard offset, in square or on line
 uint8_t b_offset = 0;
-grid_t pos = {0,0};
 
 // sets slot.x and slot.y to where the captured piece should go in graveyard
 // returns 0 if slot is available, -1 if there are no more slots
@@ -41,10 +40,11 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 			slot->x = graveyard_ptr->x;
 			slot->y = graveyard_ptr->y;
 		} else { // on line
-			slot->x = ((graveyard_ptr+N)->x - graveyard_ptr->x)/2;
-			slot->y = ((graveyard_ptr+N)->y - graveyard_ptr->y)/2;
+			slot->x = graveyard_ptr->x + (((graveyard_ptr+N)->x - graveyard_ptr->x)/2);
+			slot->y = graveyard_ptr->y + (((graveyard_ptr+N)->y - graveyard_ptr->y)/2);
 		}
 		*offset += 1;
+		LOG_TRACE("graveyard slot: (%d,%d), w_offset: %d, b_offset: %d", slot->x, slot->y, w_offset, b_offset);
 		return 0;
 	}
 	return -1; // no more slots
@@ -74,6 +74,7 @@ int move_done(void) {
 
 int set_origin(void) {
 	step_reset();
+	w_offset = b_offset = 0;
 	int x = get_pos(X);
 	int y = get_pos(Y);
 	LOG_TRACE("(%d,%d)", x, y);
@@ -96,39 +97,47 @@ void debug_move(int16_t x, int16_t y) {
 
 /*
  *  move chess piece at (x,y) to (dest_x,dest_y)
- *	x, y, dest_x, dest_y are in mm
+ *	x, y, are in grid indexes (0 to N-1) and 
+ *	dest_x, dest_y are in mm
+ *
+*	Note: mainly for moving to graveyard
+ */
+void move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y) {
+	 LOG_TRACE("move_piece_to_mm: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
+	 // goto src
+	 int16_t x_align = DIFF_MM(grid[y][x].x, get_pos(X));
+	 int16_t y_align = DIFF_MM(grid[y][x].y, get_pos(Y));
+	 // move to dst
+	 int16_t dx = DIFF_MM(dest_x, grid[y][x].x);
+	 int16_t dy = DIFF_MM(dest_y, grid[y][x].y);
+	
+	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
+	 int16_t x_off, y_off;
+     SET_OFFSET(x_off, y_off);
+	 
+	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
+	 TAXI_CAB_MOVE(x_align,y_align,x_off,y_off,dx,dy);
+}
+
+/*
+ *  move chess piece at (x,y) to (dest_x,dest_y)
+ *	x, y, dest_x, dest_y are in grid indexes (0 to N-1)
  */
 void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
 	 // goto src
-	 int16_t x_align = grid[y][x].x - get_pos(X);
-	 int16_t y_align = grid[y][x].y - get_pos(Y);
+	 int16_t x_align = DIFF_MM(grid[y][x].x, get_pos(X));
+	 int16_t y_align = DIFF_MM(grid[y][x].y, get_pos(Y));
 	 // move to dst
-	 int16_t dx = (grid[dest_y][dest_x].x - grid[y][x].x)-(2*dest_x);
-	 int16_t dy = (grid[dest_y][dest_x].y - grid[y][x].y)-(2*dest_y);
+	 int16_t dx = DIFF_MM(grid[dest_y][dest_x].x, grid[y][x].x)-(2*dest_x);
+	 int16_t dy = DIFF_MM(grid[dest_y][dest_x].y, grid[y][x].y)-(2*dest_y);
 	
 	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
 	 int16_t x_off, y_off;
-     if (x < N-1)
-         x_off = (grid[y][x].x - grid[y][x+1].x)/2;
-     else
-         x_off = 32;
-     if (y < N-1)
-         y_off = (grid[y][x].y - grid[y+1][x].y)/2;
-     else
-         y_off = 32;
+     SET_OFFSET(x_off, y_off);
 	 
 	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
-	 step_mm_blocking(x_align, 0); // goto src
-	 step_mm_blocking(0, y_align); // goto src
-	 magnet_on();
-	 step_mm_blocking(x_off, 0); // move piece onto line
-	 step_mm_blocking(0, y_off); // move piece onto line
-	 step_mm_blocking(dx, 0); // move to dest, taxi-cab style
-	 step_mm_blocking(0, dy);
-	 step_mm_blocking(-1*x_off, 0); // stagger off line
-	 step_mm_blocking(0, -1*y_off); // stagger off line
-	 move_done();
+	 TAXI_CAB_MOVE(x_align,y_align,x_off,y_off,dx,dy);
 }
 
 /*
@@ -233,9 +242,11 @@ void HAL_SYSTICK_Callback(void) {
 			if (x_debouncer == 0x7F) {
 				x_debouncer = 0;
 				stop_stepping();
+				step_mm(X, 2);
 			}
-			if (get_pos(X) < LOWER_LIMIT || get_pos(X) > UPPER_LIMIT) {
+			if (get_pos(X) > UPPER_LIMIT) {
 				stop_stepping();
+				step_mm(X, -2);
 			}
 		}
 		
@@ -247,9 +258,11 @@ void HAL_SYSTICK_Callback(void) {
 			if (y_debouncer == 0x7F) {
 				y_debouncer = 0;
 				stop_stepping();
+				step_mm(Y, 2);
 			}
-			if (get_pos(Y) < LOWER_LIMIT || get_pos(Y) > UPPER_LIMIT) {
+			if (get_pos(Y) > UPPER_LIMIT) {
 				stop_stepping();
+				step_mm(Y, -2);
 			}
 		}
 	}
