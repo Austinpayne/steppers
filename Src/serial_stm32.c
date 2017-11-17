@@ -110,6 +110,10 @@ int do_end_game(char *params) {
     return -1;
 }
 
+int do_send_log(char *params) {
+	return -1;
+}
+
 int do_scan_wifi(char *params) {
     return -1;
 }
