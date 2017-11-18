@@ -97,12 +97,12 @@ int do_move_piece(char *params) {
 }
 
 int do_promote(char *params) {
-    return -1;
+	return -1;
 }
 
 int do_calibrate(char *params) {
-	LOG_TRACE("calibrating...");
 	calibrate();
+	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
     return 0;
 }
 
@@ -115,10 +115,13 @@ int do_send_log(char *params) {
 }
 
 int do_scan_wifi(char *params) {
-    return -1;
+	do_calibrate(params);
+    debug_squares();
+	return 0;
 }
 
 int do_set_wifi(char *params) {
-    return -1;
+	magnet_on();
+    return 0;
 }
 #endif

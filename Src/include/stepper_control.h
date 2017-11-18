@@ -34,10 +34,12 @@
 	step_mm_blocking((sx), 0); \
 	step_mm_blocking(0, (sy)); \
 	magnet_on(); \
-	step_mm_blocking((ox), (oy)); \
+	step_mm_blocking((ox), 0); \
+	step_mm_blocking(0, (oy)); \
 	step_mm_blocking((dx), 0); \
 	step_mm_blocking(0, (dy)); \
-	step_mm_blocking(-1*(ox), -1*(oy)); \
+	step_mm_blocking(-1*(ox), 0); \
+	step_mm_blocking(0, -1*(oy)); \
 	move_done(); \
 } while(0)
 #define DIFF_MM(dst,src) ((dst) - (src))
@@ -61,6 +63,7 @@ typedef struct {
 int get_current_graveyard_slot(grid_t *slot, char color);
 void step_control_init(void);
 void step_squares(int axis, int n);
+void debug_squares(void);
 void debug_move(int16_t x, int16_t y);
 void move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y);
 void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y);
