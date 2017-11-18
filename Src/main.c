@@ -141,7 +141,6 @@ void output_init(void) {
 	
 	gpio_output_init(GPIOC, X_DIR); // PC0 (x-axis dir)
 	gpio_output_init(GPIOC, Y_DIR); // PC1 (y-axis dir)
-	gpio_output_init(GPIOC, MAGNET_PIN); // PC1
 	
 	gpio_output_init(GPIOC, X_SLEEP); // PC6 (x-axis sleep)
 	gpio_output_init(GPIOC, Y_SLEEP); // PC7 (y-axis sleep)
@@ -179,6 +178,7 @@ void sys_init(){
 	RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 	
 	//configure GPIO 10 - 15 to general purpose output mode
+	gpio_output_init(GPIOB, MAGNET_PIN); // PB2
 	GPIOB->MODER |= GPIO_MODER_MODER10_0 | GPIO_MODER_MODER11_0;
 	GPIOB->MODER |= GPIO_MODER_MODER12_0 | GPIO_MODER_MODER13_0;
 	GPIOB->MODER |= GPIO_MODER_MODER14_0 | GPIO_MODER_MODER15_0;

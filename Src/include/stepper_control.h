@@ -17,9 +17,9 @@
 #define HALF_SQUARES_TO_MM(halves) (SQUARE_HALF_WIDTH*(halves))
 
 // magnet
-#define MAGNET_PIN 1 // GPIOC
-#define MAGNET_OFF (GPIOC->ODR &= ~(1 << MAGNET_PIN))
-#define MAGNET_ON (GPIOC->ODR  |=  (1 << MAGNET_PIN))
+#define MAGNET_PIN 2 // GPIOB
+#define MAGNET_OFF (GPIOB->ODR &= ~(1 << MAGNET_PIN))
+#define MAGNET_ON (GPIOB->ODR  |=  (1 << MAGNET_PIN))
 
 // movement
 #define SET_COORDS(x,y,uci) do {(x)=(uci)[0]-'a'+1; (y)=(uci)[1]-'1'+1;} while(0)
