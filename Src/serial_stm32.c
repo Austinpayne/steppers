@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "serial.h"
 #include "stepper_control.h"
+#include "hall_array_library.h"
 
 int do_new_game(char *params) {
 	return do_calibrate(params);
@@ -107,7 +108,8 @@ int do_calibrate(char *params) {
 }
 
 int do_end_game(char *params) {
-    return -1;
+	get_board_state();
+    return 0;
 }
 
 int do_send_log(char *params) {

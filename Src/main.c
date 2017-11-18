@@ -171,19 +171,6 @@ void cal_switches_init(void) {
 	gpio_write_reg16(&(GPIOC->ODR), Y_RESET, 1);
 }
 
-void cal_interrupt_init(void) {
-	cal_switches_init();
-	// enable cal switch interrupts
-	// switches are active low
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI4_PC; // multiplex PC4 to EXTI4
-	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR2_EXTI5_PC; // multiplex PC5 to EXTI5
-	EXTI->IMR |= (EXTI_IMR_IM4 | EXTI_IMR_IM5); // unmask EXTI4 & EXTI5
-	EXTI->FTSR |= (EXTI_RTSR_RT4 | EXTI_RTSR_RT5); // trigger on rising edge
-	
-	//NVIC_EnableIRQ(EXTI4_15_IRQn); // enable interrupt in NVIC
-	//NVIC_SetPriority(EXTI4_15_IRQn, CAL_PRIORITY);
-}
-
 void sys_init(){
 	RCC->APB2ENR |= RCC_APB2ENR_ADCEN;
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;//enable clock for gpioc - analog in
@@ -224,11 +211,6 @@ void sys_init(){
 	while((ADC1->ISR & ADC_ISR_ADRDY) == 0){
 		/*implement a time out here*/
 	}
-	
-	//enbale usart
-	USART1->BRR = (HAL_RCC_GetHCLKFreq()/9600);
-	USART1->CR1 |= USART_CR1_TE | USART_CR1_RE; // enable usart transmitter/receiver
-	USART1->CR1 |= USART_CR1_UE; //enable USART
 }
 
 /* USER CODE END 0 */
@@ -258,11 +240,17 @@ int main(void)
   timer_init();
   output_init();
   cal_switches_init();
-  cal_interrupt_init();
-  //sys_init();
+  sys_init();
+  init_board();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
-  LOG_INFO("system ready");
+  LOG_INFO("system ready, place pieces");
+  
+  HAL_Delay(20000);
+  
+  LOG_INFO("getting board state");
+  
+  get_board_state();
  
   /* USER CODE END 2 */
 
@@ -273,7 +261,6 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	//pseudo_main();
 	__WFI();
   }
   /* USER CODE END 3 */

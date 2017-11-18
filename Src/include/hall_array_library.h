@@ -9,47 +9,53 @@
 
 #define NUM_SQUARES 64
 #define ROW_COL 8
-//#define THRESHOLD 115
+#define THRESHOLD 100
+#define pieces_on_board 32
 
+#define turn_on_a()  (GPIOB->BSRR |= GPIO_BSRR_BS_10)
+#define turn_on_b()  (GPIOB->BSRR |= GPIO_BSRR_BS_11)
+#define turn_on_c()  (GPIOB->BSRR |= GPIO_BSRR_BS_12)
+#define turn_on_d()  (GPIOB->BSRR |= GPIO_BSRR_BS_13)
+#define turn_on_e()  (GPIOB->BSRR |= GPIO_BSRR_BS_14)
+#define turn_on_f()  (GPIOB->BSRR |= GPIO_BSRR_BS_15)
+#define turn_off_a() (GPIOB->BSRR |= GPIO_BSRR_BR_10)
+#define turn_off_b() (GPIOB->BSRR |= GPIO_BSRR_BR_11)
+#define turn_off_c() (GPIOB->BSRR |= GPIO_BSRR_BR_12)
+#define turn_off_d() (GPIOB->BSRR |= GPIO_BSRR_BR_13)
+#define turn_off_e() (GPIOB->BSRR |= GPIO_BSRR_BR_14)
+#define turn_off_f() (GPIOB->BSRR |= GPIO_BSRR_BR_15)
 
 typedef struct{
 	int16_t buffer[8][8];	
 }board_buffer;
 
+typedef struct{
+	char buf[5];
+}move_string;
+
 void initialize_biases(void);
 
-board_buffer get_board_state(void);
-void transmit_char_usart(char);
-void transmit_voltage_usart(uint16_t);
-void transmit_string_usart(char*);
+void get_board_state(void);
+//void transmit_voltage_usart(uint16_t );
 void pseudo_main(void);
-board_buffer scan_bools(board_buffer*, board_buffer*);
 
-//float adcval_tovolt(uint16_t);
-board_buffer scan_array(board_buffer*);
-board_buffer check_three_boards(void);
-char* itoa(int num, char* str, int base);
-void reverse(char str[], int length);
-void swap(char* a, char* b);
-void print_bools(void);
-void print_state(void);
-void print_biases(void);
+void calculate_move(board_buffer*, board_buffer*, move_string*);
+void scan_bools(board_buffer*);
+
+
+void zero_out_board(board_buffer*);
+//float adcval_tovolt(uint16_t );
+void scan_array(board_buffer*);
+board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2, 
+                                board_buffer* board_3, board_buffer*, board_buffer*);
+void print_board(board_buffer);
+int16_t count_pieces(board_buffer*);
+//void print16_t _bools(void);
+//void print16_t _state(void);
+//void print16_t _biases(void);
 int16_t take_reading(void);
 
-void turn_on_a(void);
-void turn_on_b(void);
-void turn_on_c(void);
-void turn_on_d(void);
-void turn_on_e(void);
-void turn_on_f(void);
-
-void turn_off_a(void);
-void turn_off_b(void);
-void turn_off_c(void);
-void turn_off_d(void);
-void turn_off_e(void);
-void turn_off_f(void);
-
 void turn_off_all(void);
+void init_board(void);
 
 #endif
