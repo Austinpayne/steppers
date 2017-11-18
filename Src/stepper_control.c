@@ -16,10 +16,10 @@ grid_t grid[N][N] = { // y,x in mm to each square (from origin)
 // V
 /*		0         1			2		   3		  4			 5			6		   7		  8			 9		  */
 /* 0 */ {{0,0},   {0,68},    {0,133},   {0,196},   {0,259},   {0,322},   {0,386},   {0,450},   {0,513},   {0,577}},
-/* 1 */ {{63,0},  {63,68},  {63,133},  {63,197},  {63,260},  {63,323},  {63,386},  {63,449},  {63,512},  {63,576}},
-/* 2 */	{{128,0}, {126,64}, {128,128}, {128,192}, {128,256}, {128,320}, {128,384}, {128,448}, {128,512}, {128,576}},
-/* 3 */	{{190,0}, {189,64}, {192,128}, {192,192}, {192,256}, {192,320}, {192,384}, {192,448}, {192,512}, {192,576}},
-/* 4 */	{{254,0}, {252,64}, {256,128}, {256,192}, {256,256}, {256,320}, {256,384}, {256,448}, {256,512}, {256,576}},
+/* 1 */ {{65,0},  {65,68},  {65,133},  {65,197},  {65,260},  {65,323},  {65,386},  {65,449},  {65,512},  {65,576}},
+/* 2 */	{{130,0}, {130,64}, {130,128}, {130,192}, {130,256}, {130,320}, {130,384}, {130,448}, {130,512}, {130,576}},
+/* 3 */	{{192,0}, {192,64}, {192,128}, {192,192}, {192,256}, {192,320}, {192,384}, {192,448}, {192,512}, {192,576}},
+/* 4 */	{{254,0}, {254,64}, {254,128}, {254,192}, {254,256}, {254,320}, {254,384}, {254,448}, {254,512}, {254,576}},
 /* 5 */	{{317,0}, {315,64}, {320,128}, {320,192}, {320,256}, {320,320}, {320,384}, {320,448}, {320,512}, {320,576}},
 /* 6 */	{{383,0}, {378,64}, {384,128}, {384,192}, {384,256}, {384,320}, {384,384}, {384,448}, {384,512}, {384,576}},
 /* 7 */	{{449,0}, {443,64}, {448,128}, {448,192}, {448,256}, {448,320}, {448,384}, {448,448}, {448,512}, {448,576}},
@@ -53,6 +53,7 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 int magnet_on(void) {
 	LOG_TRACE("Turning magnet on");
 	MAGNET_ON;
+	HAL_Delay(500);
 	return 0;
 } 
 
@@ -60,8 +61,8 @@ int magnet_off(void) {
 	LOG_TRACE("Turning magnet off");
 	int x = get_pos(X);
 	int y = get_pos(Y);
-	LOG_TRACE("(%d,%d)", x, y);
-	//HAL_Delay(100);
+	LOG_TRACE("magnet position: (%d,%d)", x, y);
+	HAL_Delay(500);
 	MAGNET_OFF; 
 	return 0;
 }
@@ -77,10 +78,17 @@ int set_origin(void) {
 	w_offset = b_offset = 0;
 	int x = get_pos(X);
 	int y = get_pos(Y);
-	LOG_TRACE("(%d,%d)", x, y);
-	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 	cal = 0;
 	return 0;
+}
+
+void debug_squares(void) {
+	int i, j;
+	for (i=0; i<N; i++) {
+		for (j=0; j<N; j++) {
+			debug_move(i, j);
+		}
+	}
 }
 
 void debug_move(int16_t x, int16_t y) {
@@ -91,8 +99,8 @@ void debug_move(int16_t x, int16_t y) {
 	int16_t dest_y = grid[y][x].y - get_pos(Y);
 	LOG_TRACE("dest_x=%d, dest_y=%d", dest_x, dest_y);
 	magnet_off();
-	step_mm_blocking(dest_x-(2*x), 0); // goto src
-	step_mm_blocking(0, dest_y-(2*y)); // goto src
+	step_mm_blocking(dest_x, 0); // goto src
+	step_mm_blocking(0, dest_y); // goto src
 }
 
 /*
@@ -129,8 +137,8 @@ void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 int16_t x_align = DIFF_MM(grid[y][x].x, get_pos(X));
 	 int16_t y_align = DIFF_MM(grid[y][x].y, get_pos(Y));
 	 // move to dst
-	 int16_t dx = DIFF_MM(grid[dest_y][dest_x].x, grid[y][x].x)-(2*dest_x);
-	 int16_t dy = DIFF_MM(grid[dest_y][dest_x].y, grid[y][x].y)-(2*dest_y);
+	 int16_t dx = DIFF_MM(grid[dest_y][dest_x].x, grid[y][x].x);
+	 int16_t dy = DIFF_MM(grid[dest_y][dest_x].y, grid[y][x].y);
 	
 	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
 	 int16_t x_off, y_off;
@@ -182,8 +190,6 @@ int calibrate(void) {
 	// step until hit calibration switches
 	cal = 1;
 	uint32_t timeout = HAL_GetTick() + CALIBRATION_TIMEOUT;
-	LOG_TRACE("HAL_GetTick()=%ld", HAL_GetTick());
-	LOG_TRACE("timeout=%ld", timeout);
 	unsigned char x_done = 0;
 	unsigned char y_done = 0;
 	int ret = 0;
