@@ -17,7 +17,7 @@
 #define HALF_SQUARES_TO_MM(halves) (SQUARE_HALF_WIDTH*(halves))
 
 // magnet
-#define MAGNET_PIN 0 // GPIOC
+#define MAGNET_PIN 1 // GPIOC
 #define MAGNET_OFF (GPIOC->ODR &= ~(1 << MAGNET_PIN))
 #define MAGNET_ON (GPIOC->ODR  |=  (1 << MAGNET_PIN))
 

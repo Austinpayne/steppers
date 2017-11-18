@@ -258,20 +258,11 @@ int main(void)
   timer_init();
   output_init();
   cal_switches_init();
-  //calibrate();
   cal_interrupt_init();
   //sys_init();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   LOG_INFO("system ready");
-
-  /*int i;
-  for (i=0; i < 10; i++) {
-	add_to_queue_d(50, 0, magnet_on);
-	add_to_queue(0, 50);
-	add_to_queue(-50, 0);
-	add_to_queue(0, -50);
-  }*/
  
   /* USER CODE END 2 */
 
