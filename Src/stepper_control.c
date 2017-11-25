@@ -69,7 +69,7 @@ int magnet_off(void) {
 
 int move_done(void) {
 	magnet_off();
-	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 	return 0;
 }
 
@@ -234,8 +234,6 @@ void HAL_SYSTICK_Callback(void) {
     if(debouncer == 0x7FFFFFFF) {
 		if (stepping()) { // kill switch
 			stop_stepping();
-		} else { // send ok to photon
-			SEND_CMD_P(CMD_STATUS, "%d", OKAY);
 		}
     }
 	

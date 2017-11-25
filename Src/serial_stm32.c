@@ -103,7 +103,7 @@ int do_promote(char *params) {
 
 int do_calibrate(char *params) {
 	calibrate();
-	SEND_CMD_P(CMD_STATUS, "%d", OKAY);
+	SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
     return 0;
 }
 

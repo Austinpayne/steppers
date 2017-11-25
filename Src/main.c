@@ -84,7 +84,9 @@ PUTCHAR_PROTOTYPE {
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if (DEBUG) printf(&rx_char);
-	rx_serial_command(rx_char, NULL);
+	if (rx_serial_command(rx_char, NULL) == FAIL) {
+		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
+	}
     HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
 /* USER CODE END PFP */
