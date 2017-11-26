@@ -184,7 +184,7 @@ void get_board_state(void) {
 	zero_out_board(&board_1);
 	zero_out_board(&board_2);
 	zero_out_board(&board_3);
-	board_state1 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state,current_biases*/);
+	board_state1 = check_three_boards(&board_1, &board_2, &board_3);
 	print_board(board_state1);
 }
 
@@ -203,18 +203,18 @@ void pseudo_main(void){
 		//current_biases = scan_array(temp);
 		//scan_array(&cur_state);
 		//magnet_pos = scan_bools();
-		board_state1 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state,current_biases*/);
+		board_state1 = check_three_boards(&board_1, &board_2, &board_3);
 		print_board(board_state1);
 		HAL_Delay(1000);
 		HAL_Delay(1000);
 		
-		board_buffer board_state3 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state, current_biases*/);
+		board_buffer board_state3 = check_three_boards(&board_1, &board_2, &board_3);
 		HAL_Delay(1000);	
 		HAL_Delay(1000);
 		HAL_Delay(1000);
 		zero_out_board(&board_1); zero_out_board(&board_2); zero_out_board(&board_3);
 		//scan_array(&cur_state);
-		board_state2 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state,current_biases*/);
+		board_state2 = check_three_boards(&board_1, &board_2, &board_3);
 		print_board(board_state2);
 		
 		move_string move;

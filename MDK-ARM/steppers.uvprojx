@@ -310,7 +310,7 @@
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>4</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -400,11 +400,6 @@
               <FilePath>..\Src\gpio.c</FilePath>
             </File>
             <File>
-              <FileName>queue.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Src\queue.c</FilePath>
-            </File>
-            <File>
               <FileName>stepper.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Src\stepper.c</FilePath>
@@ -418,11 +413,6 @@
               <FileName>gpio.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Src\include\gpio.h</FilePath>
-            </File>
-            <File>
-              <FileName>queue.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Src\include\queue.h</FilePath>
             </File>
             <File>
               <FileName>stepper.h</FileName>

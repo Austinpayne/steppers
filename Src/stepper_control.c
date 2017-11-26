@@ -222,7 +222,6 @@ int calibrate(void) {
  *	for user button (kill switch)
  */
 void HAL_SYSTICK_Callback(void) {
-    static uint32_t debouncer = 0;
 	static uint8_t x_debouncer = 0;
 	static uint8_t y_debouncer = 0;
 	
