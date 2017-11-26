@@ -2,9 +2,11 @@
 #include "string.h"
 #include "hall_array_library.h"
 
-board_buffer* cur_state;
-board_buffer* current_biases;
-board_buffer* mag_pos;
+volatile board_buffer* cur_state;
+volatile board_buffer* current_biases;
+//char * move_parse = "abcdefgh";
+char* move_parse = "hgfedcba";
+//volatile board_buffer* mag_pos;
 
 int16_t count_pieces(board_buffer* board){
 	int16_t result = 0;
@@ -18,8 +20,6 @@ int16_t count_pieces(board_buffer* board){
 }
 
 void scan_bools(board_buffer* bools) {
-	unsigned row = 0, col = 0;
-	//board_buffer bools;
 	for(int16_t i = 0; i < 8; i++){
 		for(int16_t j = 0; j < 8; j++){
 			int16_t current_bias_val = current_biases->buffer[i][j];
@@ -38,9 +38,7 @@ void scan_bools(board_buffer* bools) {
 }
 
 float adcval_tovolt(int16_t adc_val){
-	float val = 0;
 	float temp = 3.3/4096;
-	val =((float)adc_val)*temp;
 	return temp;
 }
 
@@ -60,7 +58,7 @@ float adcval_tovolt(int16_t adc_val){
 	transmit_char_usart('\n');
 }*/
 
-void scan_array(board_buffer* buf){
+void scan_array(volatile board_buffer* buf){
 	//unsigned int16_t array_values[64][64];
 	//board_buffer state;
 	int16_t row = 0, col = 0;
@@ -118,14 +116,12 @@ void scan_array(board_buffer* buf){
 			}else{
 				turn_on_c();
 			}
-		//	for(int32_t k = 0; k < 10000; k++){
-		//		__nop();
-		//	}
+			//for(int32_t k = 0; k < 10000; k++){
+			//	__nop();
+			//}
 			HAL_Delay(5);
 			int16_t reading = take_reading();
 			buf->buffer[row][col] = reading;
-			
-			int16_t string_int16_t = reading & 0x0fff;
 		}
 	}
 	return;
@@ -153,8 +149,9 @@ int16_t take_reading(void){
 
 void print_board(board_buffer board){
 	#define STR_BUFF_SIZE 32
-	char row_str[STR_BUFF_SIZE] = {0};
+	char row_str[STR_BUFF_SIZE];// = {0};
 	int len = 0;
+	LOG_TRACE("");
 	for(int16_t i = 7; i >= 0; i--){// i is the row
 		for(int16_t j = 0; j < 8; j++){// j is the col
 			len += snprintf(row_str+len, STR_BUFF_SIZE-len, "%d ", board.buffer[i][j]);
@@ -170,7 +167,7 @@ void print_board(board_buffer board){
 void init_board(void) {
 	cur_state = malloc(sizeof(board_buffer));
 	current_biases = malloc(sizeof(board_buffer));
-	mag_pos = malloc(sizeof(mag_pos));
+	//mag_pos = malloc(sizeof(mag_pos));
 	
 	turn_off_all();
 
@@ -178,6 +175,7 @@ void init_board(void) {
 	scan_array(current_biases);
 	scan_array(cur_state);
 	scan_array(current_biases);
+	
 }
 
 void get_board_state(void) {
@@ -186,7 +184,7 @@ void get_board_state(void) {
 	zero_out_board(&board_1);
 	zero_out_board(&board_2);
 	zero_out_board(&board_3);
-	board_state1 = check_three_boards(&board_1, &board_2, &board_3, cur_state,current_biases);
+	board_state1 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state,current_biases*/);
 	print_board(board_state1);
 }
 
@@ -205,18 +203,18 @@ void pseudo_main(void){
 		//current_biases = scan_array(temp);
 		//scan_array(&cur_state);
 		//magnet_pos = scan_bools();
-		board_state1 = check_three_boards(&board_1, &board_2, &board_3, cur_state,current_biases);
+		board_state1 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state,current_biases*/);
 		print_board(board_state1);
 		HAL_Delay(1000);
 		HAL_Delay(1000);
 		
-		board_buffer board_state3 = check_three_boards(&board_1, &board_2, &board_3, cur_state, current_biases);
+		board_buffer board_state3 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state, current_biases*/);
 		HAL_Delay(1000);	
 		HAL_Delay(1000);
 		HAL_Delay(1000);
 		zero_out_board(&board_1); zero_out_board(&board_2); zero_out_board(&board_3);
 		//scan_array(&cur_state);
-		board_state2 = check_three_boards(&board_1, &board_2, &board_3, cur_state,current_biases);
+		board_state2 = check_three_boards(&board_1, &board_2, &board_3/*, cur_state,current_biases*/);
 		print_board(board_state2);
 		
 		move_string move;
@@ -252,8 +250,8 @@ void calculate_move(board_buffer* prev_state, board_buffer* new_state, move_stri
 	unsigned found_first_point = 0;
 	unsigned prev_x = 0, prev_y = 0;
 	unsigned new_x = 0, new_y = 0;
-	for(unsigned i = 0; i < 8; i++){
-		for(unsigned j = 0; j < 8; j++){
+	for(unsigned j = 0; j < 8; j++){
+		for(unsigned i = 0; i < 8; i++){
 			int16_t test = prev_state->buffer[i][j] ^ new_state->buffer[i][j];
 			if(test){
 				if(!found_first_point){
@@ -277,17 +275,16 @@ void calculate_move(board_buffer* prev_state, board_buffer* new_state, move_stri
 		new_y = p2y;
 	}
 	//char move[4];
-	move_buf->buf[0] = prev_x + 'a';
-	move_buf->buf[1] = prev_y + '1';
-	move_buf->buf[2] = new_x + 'a';
-	move_buf->buf[3] = new_y + '1';
+	
+	move_buf->buf[0] = move_parse[prev_y];//prev_x + 'a';
+	move_buf->buf[1] = prev_x + '1';
+	move_buf->buf[2] = move_parse[new_y];//new_x + 'a';
+	move_buf->buf[3] = new_x + '1';
 	move_buf->buf[4] = '\0';
 	return;
 }
-board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2,
-																board_buffer* board_3, board_buffer* cur_state, board_buffer* current_biases){
+board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2, board_buffer* board_3) {
 	board_buffer temp;
-	//temp = scan_array(&cur_state);
 	scan_array(cur_state);
 	scan_bools(board_1);
 	scan_array(cur_state);

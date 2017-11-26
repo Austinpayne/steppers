@@ -247,12 +247,6 @@ int main(void)
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   LOG_INFO("system ready, place pieces");
-  
-  HAL_Delay(20000);
-  
-  LOG_INFO("getting board state");
-  
-  get_board_state();
  
   /* USER CODE END 2 */
 

@@ -225,17 +225,6 @@ void HAL_SYSTICK_Callback(void) {
     static uint32_t debouncer = 0;
 	static uint8_t x_debouncer = 0;
 	static uint8_t y_debouncer = 0;
-    
-    debouncer = (debouncer << 1);
-    if(GPIOA->IDR & (1 << 0)) {
-        debouncer |= 0x1;
-    }
-
-    if(debouncer == 0x7FFFFFFF) {
-		if (stepping()) { // kill switch
-			stop_stepping();
-		}
-    }
 	
 	if (!calibrating()) {
 		if (axis_stepping(X)) {

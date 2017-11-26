@@ -7,12 +7,46 @@
 #include "stepper_control.h"
 #include "hall_array_library.h"
 
+board_buffer old_state, new_state;
+board_buffer temp1, temp2, temp3;
+int16_t num_pieces = 32;
+
 int do_new_game(char *params) {
-	return do_calibrate(params);
+	old_state = check_three_boards(&temp1,&temp2,&temp3);
+	print_board(old_state);
+	num_pieces = count_pieces(&old_state);
+	if (num_pieces <= 32) {
+		return do_calibrate(params);
+		SEND_CMD_P(CMD_NEW_GAME, "%.1s", "a"); // vs. ai
+		HAL_Delay(5000);
+	} else {
+		LOG_ERR("need 32 pieces on the board");
+		return -1;
+	}
 }
 
 int do_end_turn(char *params) {
-    return -1;
+	char *p_arr[1] = {NULL};
+	int num_params;
+	num_params = parse_params(params, p_arr, 1);
+	if (num_params > 0 && strchr(p_arr[0], 'c')) {
+		old_state = check_three_boards(&temp1,&temp2,&temp3);
+		print_board(old_state);
+		int16_t new_count = count_pieces(&old_state);
+		if (new_count < num_pieces) {
+			num_pieces = new_count;
+		} else {
+			LOG_ERR("need to remove piece");
+		}
+	} else {
+		new_state = check_three_boards(&temp1,&temp2,&temp3);
+		print_board(new_state);
+		move_string move;
+		calculate_move(&old_state,&new_state,&move);
+		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", move.buf);
+	}
+	old_state = new_state;
+	return 0;
 }
 
 static char get_color(char *flags) {
@@ -107,6 +141,8 @@ int do_calibrate(char *params) {
     return 0;
 }
 
+
+//command 6
 int do_end_game(char *params) {
 	get_board_state();
     return 0;

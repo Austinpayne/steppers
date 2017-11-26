@@ -45,9 +45,9 @@ void scan_bools(board_buffer*);
 
 void zero_out_board(board_buffer*);
 //float adcval_tovolt(uint16_t );
-void scan_array(board_buffer*);
+void scan_array(volatile board_buffer*);
 board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2, 
-                                board_buffer* board_3, board_buffer*, board_buffer*);
+                                board_buffer* board_3/*, board_buffer*, board_buffer**/);
 void print_board(board_buffer);
 int16_t count_pieces(board_buffer*);
 //void print16_t _bools(void);
