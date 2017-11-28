@@ -17,8 +17,6 @@ int do_new_game(char *params) {
 	num_pieces = count_pieces(&old_state);
 	if (num_pieces <= 32) {
 		return do_calibrate(params);
-		SEND_CMD_P(CMD_NEW_GAME, "%.1s", "a"); // vs. ai
-		HAL_Delay(5000);
 	} else {
 		LOG_ERR("need 32 pieces on the board");
 		return -1;
@@ -26,26 +24,40 @@ int do_new_game(char *params) {
 }
 
 int do_end_turn(char *params) {
+	new_state = check_three_boards(&temp1,&temp2,&temp3);
+	print_board(new_state);
+	move_string move;
+	int8_t ret = calculate_move(&old_state,&new_state,&move);
+	if (ret == 0) {
+		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", move.buf);
+	} else {
+		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", "fail");
+	}
+	old_state = new_state;
+	return 0;
+}
+
+int do_capture_castle(char *params) {
 	char *p_arr[1] = {NULL};
 	int num_params;
 	num_params = parse_params(params, p_arr, 1);
-	if (num_params > 0 && strchr(p_arr[0], 'c')) {
-		old_state = check_three_boards(&temp1,&temp2,&temp3);
-		print_board(old_state);
-		int16_t new_count = count_pieces(&old_state);
-		if (new_count < num_pieces) {
-			num_pieces = new_count;
-		} else {
-			LOG_ERR("need to remove piece");
+	if (num_params > 0) {
+		if (strchr(p_arr[0], 'c')) {
+			new_state = check_three_boards(&temp1,&temp2,&temp3);
+			print_board(tmp_new_state);
+			int16_t new_count = count_pieces(&old_state);
+			if (new_count < num_pieces) {
+				num_pieces = new_count;
+				old_state = new_state;
+				SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
+			} else {
+				LOG_ERR("need to remove piece");
+				SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
+			}
+		} else if (strchr(p_arr[0], 'k')) {
+			
 		}
-	} else {
-		new_state = check_three_boards(&temp1,&temp2,&temp3);
-		print_board(new_state);
-		move_string move;
-		calculate_move(&old_state,&new_state,&move);
-		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", move.buf);
 	}
-	old_state = new_state;
 	return 0;
 }
 
