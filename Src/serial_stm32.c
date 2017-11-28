@@ -30,10 +30,10 @@ int do_end_turn(char *params) {
 	int8_t ret = calculate_move(&old_state,&new_state,&move);
 	if (ret == 0) {
 		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", move.buf);
+		old_state = new_state;
 	} else {
 		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", "fail");
 	}
-	old_state = new_state;
 	return 0;
 }
 
@@ -44,7 +44,7 @@ int do_capture_castle(char *params) {
 	if (num_params > 0) {
 		if (strchr(p_arr[0], 'c')) {
 			new_state = check_three_boards(&temp1,&temp2,&temp3);
-			print_board(tmp_new_state);
+			print_board(new_state);
 			int16_t new_count = count_pieces(&old_state);
 			if (new_count < num_pieces) {
 				num_pieces = new_count;
