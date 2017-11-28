@@ -39,7 +39,7 @@ void get_board_state(void);
 //void transmit_voltage_usart(uint16_t );
 void pseudo_main(void);
 
-void calculate_move(board_buffer*, board_buffer*, move_string*);
+int8_t calculate_move(board_buffer*, board_buffer*, move_string*);
 void scan_bools(board_buffer*);
 
 

@@ -244,14 +244,15 @@ void zero_out_board(board_buffer* board){
 		}
 	}
 }
-void calculate_move(board_buffer* prev_state, board_buffer* new_state, move_string* move_buf){
-	unsigned p1x = 0, p1y = 0;
-	unsigned p2x = 0, p2y = 0;
-	unsigned found_first_point = 0;
-	unsigned prev_x = 0, prev_y = 0;
-	unsigned new_x = 0, new_y = 0;
-	for(unsigned j = 0; j < 8; j++){
-		for(unsigned i = 0; i < 8; i++){
+int8_t calculate_move(board_buffer* prev_state, board_buffer* new_state, move_string* move_buf){
+	uint8_t p1x = 0, p1y = 0;
+	uint8_t p2x = 0, p2y = 0;
+	uint8_t found_first_point = 0;
+	uint8_t found_second_point = 0;
+	uint8_t prev_x = 0, prev_y = 0;
+	uint8_t new_x = 0, new_y = 0;
+	for(uint8_t j = 0; j < 8; j++){
+		for(uint8_t i = 0; i < 8; i++){
 			int16_t test = prev_state->buffer[i][j] ^ new_state->buffer[i][j];
 			if(test){
 				if(!found_first_point){
@@ -259,6 +260,7 @@ void calculate_move(board_buffer* prev_state, board_buffer* new_state, move_stri
 					found_first_point = 1;
 				}else{
 					p2x = j; p2y = i;
+					found_second_point = 1;
 				}
 			}
 		}
@@ -281,7 +283,11 @@ void calculate_move(board_buffer* prev_state, board_buffer* new_state, move_stri
 	move_buf->buf[2] = move_parse[new_y];//new_x + 'a';
 	move_buf->buf[3] = new_x + '1';
 	move_buf->buf[4] = '\0';
-	return;
+	
+	if (found_first_point && found_second_point)
+		return 0;
+	else
+		return -1;
 }
 board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2, board_buffer* board_3) {
 	board_buffer temp;
