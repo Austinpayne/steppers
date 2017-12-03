@@ -10,6 +10,8 @@
 board_buffer old_state, new_state;
 board_buffer temp1, temp2, temp3;
 int16_t num_pieces = 32;
+uint8_t save_move = 1;
+move_string latest_move;
 
 int do_new_game(char *params) {
 	old_state = check_three_boards(&temp1,&temp2,&temp3);
@@ -19,6 +21,7 @@ int do_new_game(char *params) {
 		return do_calibrate(params);
 	} else {
 		LOG_ERR("need 32 pieces on the board");
+		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 		return -1;
 	}
 }
@@ -26,10 +29,12 @@ int do_new_game(char *params) {
 int do_end_turn(char *params) {
 	new_state = check_three_boards(&temp1,&temp2,&temp3);
 	print_board(new_state);
-	move_string move;
-	int8_t ret = calculate_move(&old_state,&new_state,&move);
+	int8_t ret = -1;
+	if (save_move)
+		ret = calculate_move(&old_state, &new_state, &latest_move);
 	if (ret == 0) {
-		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", move.buf);
+		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", latest_move.buf);
+		save_move = 1;
 		old_state = new_state;
 	} else {
 		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", "fail");
@@ -55,7 +60,11 @@ int do_capture_castle(char *params) {
 				SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 			}
 		} else if (strchr(p_arr[0], 'k')) {
-			
+			new_state = check_three_boards(&temp1,&temp2,&temp3);
+			print_board(new_state);
+			int8_t ret = calculate_move(&old_state,&new_state,&latest_move);
+			save_move = 0;
+			old_state = new_state;
 		}
 	}
 	return 0;
@@ -64,10 +73,8 @@ int do_capture_castle(char *params) {
 static char get_color(char *flags) {
 	if (strchr(flags, 'w')) {
 		return 'w';
-	} else if (strchr(flags, 'b')) {
-		return 'b';
 	} else {
-		return 0;
+		return 'b';
 	}
 }
 
@@ -117,6 +124,8 @@ int do_move_piece(char *params) {
 					MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, color);
 				}
 				// move promoted piece to 'to'
+				PROMOTE_TO_SQUARE(x, y, graveyard, color);
+				SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 			}
 			break;
 		case 2: // capture
@@ -173,5 +182,10 @@ int do_scan_wifi(char *params) {
 int do_set_wifi(char *params) {
 	magnet_on();
     return 0;
+}
+
+int do_reset(char *params) {
+//	NVIC_SystemReset();
+	return 0;
 }
 #endif

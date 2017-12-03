@@ -30,6 +30,10 @@
 		move_piece_to_mm((x), (y), (g).x, (g).y); \
 	} \
 } while(0)
+#define PROMOTE_TO_SQUARE(x,y,g,c) do { \
+	get_promoted_piece(&(g), (c)); \
+	move_piece_to_mm((x),(y),(g).x,(g).y); \
+} while (0)
 #define TAXI_CAB_MOVE(sx,sy,ox,oy,dx,dy) do { \
 	step_mm_blocking((sx), 0); \
 	step_mm_blocking(0, (sy)); \
@@ -61,6 +65,7 @@ typedef struct {
 
 // func definitions
 int get_current_graveyard_slot(grid_t *slot, char color);
+void get_promoted_piece(grid_t *slot, char color);
 void step_control_init(void);
 void step_squares(int axis, int n);
 void debug_squares(void);

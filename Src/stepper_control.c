@@ -35,7 +35,7 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 	uint8_t *offset = color == 'w' ? &w_offset : &b_offset;
 	
 	if (*offset < (N*2)-1) {
-		grid_t *graveyard_ptr = color == 'w' ? &(grid[0][0])+(N*(w_offset/2)) : &(grid[0][N-1])+(N*(b_offset/2));
+		grid_t *graveyard_ptr = color == 'w' ? &(grid[0][1])+(N*(w_offset/2)) : &(grid[0][N-2])+(N*(b_offset/2));
 		if (*offset % 2 == 0) { // in square
 			slot->x = graveyard_ptr->x;
 			slot->y = graveyard_ptr->y;
@@ -98,9 +98,18 @@ void debug_move(int16_t x, int16_t y) {
 	int16_t dest_x = grid[y][x].x - get_pos(X);
 	int16_t dest_y = grid[y][x].y - get_pos(Y);
 	LOG_TRACE("dest_x=%d, dest_y=%d", dest_x, dest_y);
-	magnet_off();
 	step_mm_blocking(dest_x, 0); // goto src
 	step_mm_blocking(0, dest_y); // goto src
+}
+
+void get_promoted_piece(grid_t *slot, char color) {
+	if (color == 'w') {
+		slot->x = grid[0][0].x;
+		slot->y = grid[0][0].y;
+	} else { // black
+		slot->x = grid[9][9].x;
+		slot->y = grid[9][9].y;
+	}
 }
 
 /*
@@ -172,11 +181,14 @@ int uci_move(const char *move) {
 		SET_COORDS(src_x, src_y, move);
 		SET_COORDS(dst_x, dst_y, move+2);
 	} else {
+		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 		return -1;
 	}
 
-	if (COORD_INVALID(src_x) || COORD_INVALID(src_y) || COORD_INVALID(dst_x) || COORD_INVALID(dst_y))
+	if (COORD_INVALID(src_x) || COORD_INVALID(src_y) || COORD_INVALID(dst_x) || COORD_INVALID(dst_y)) {
+		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 		return -1;
+	}
 	
 	move_piece(src_x, src_y, dst_x, dst_y);
 	return 0;

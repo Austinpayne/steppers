@@ -45,11 +45,8 @@
 
 //#define CAL_PRIORITY  0
 #define STEP_PRIORITY 1
-#define SERIAL_BUFF_SIZE 64
 
 char rx_char;
-char rx_buffer[SERIAL_BUFF_SIZE];
-int irx = 0;
 
 /* USER CODE END Includes */
 
@@ -128,8 +125,8 @@ void timer_init(void) {
 	TIM3->CCER  |= TIM_CCER_CC3E; // enable ch 3
 	TIM3->CCER  |= TIM_CCER_CC4E; // enable ch 4
 	
-	NVIC_SetPriority(TIM2_IRQn, STEP_PRIORITY);
-	NVIC_EnableIRQ(TIM2_IRQn);
+	//NVIC_SetPriority(TIM2_IRQn, STEP_PRIORITY);
+	//NVIC_EnableIRQ(TIM2_IRQn);
 	
 	TIM2->CR1 |= TIM_CR1_CEN; // enable timers
 	TIM3->CR1 |= TIM_CR1_CEN;
@@ -243,11 +240,11 @@ int main(void)
   output_init();
   cal_switches_init();
   sys_init();
+  HAL_Delay(4000);
   init_board();
   
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   LOG_INFO("system ready, place pieces");
- 
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -258,6 +255,9 @@ int main(void)
 
   /* USER CODE BEGIN 3 */
 	__WFI();
+	  
+//	  get_board_state();
+//	  HAL_Delay(2000);
   }
   /* USER CODE END 3 */
 

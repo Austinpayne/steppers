@@ -119,8 +119,9 @@ void scan_array(volatile board_buffer* buf){
 			//for(int32_t k = 0; k < 10000; k++){
 			//	__nop();
 			//}
-			HAL_Delay(5);
+			HAL_Delay(8);
 			int16_t reading = take_reading();
+			reading &= 0x0fff;
 			buf->buffer[row][col] = reading;
 		}
 	}
@@ -136,14 +137,14 @@ int16_t take_reading(void){
 		reading = ADC1->DR & 0xfff;
 		reading = 0;
 	}
-	for(unsigned i = 0; i < 5; i++){
+	for(unsigned i = 0; i < 7; i++){
 		while((ADC1->ISR & ADC_ISR_EOC) == 0){
 		//implement time-out
 		}
 		reading = ADC1->DR & 0xfff;
 		result += reading;
 	}
-	result = result / 5;
+	result = result / 7;
 	return result;
 }
 
@@ -174,6 +175,7 @@ void init_board(void) {
 	ADC1->CR |= ADC_CR_ADSTART;//turn on adc
 	scan_array(current_biases);
 	scan_array(cur_state);
+	scan_array(current_biases);
 	scan_array(current_biases);
 	
 }
