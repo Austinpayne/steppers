@@ -256,8 +256,8 @@ int main(void)
   /* USER CODE BEGIN 3 */
 	__WFI();
 	  
-//	  get_board_state();
-//	  HAL_Delay(2000);
+	  get_board_state();
+	  HAL_Delay(2000);
   }
   /* USER CODE END 3 */
 
