@@ -8,16 +8,27 @@
 #include "hall_array_library.h"
 
 board_buffer old_state, new_state;
-board_buffer temp1;//, temp2, temp3;
-int16_t num_pieces = 32;
+board_buffer temp1;
 uint8_t save_move = 1;
 move_string latest_move;
 
+void init_board_state(void) {
+	old_state = check_three_boards(&temp1);
+	get_board_state();
+}
+
+void update_board_state(uint8_t set_save_move) {
+	new_state = check_three_boards(&temp1);
+	print_board(new_state);
+	if (set_save_move) {
+		calculate_move(&old_state,&new_state,&latest_move);
+	}
+	old_state = new_state;
+}
+
 int do_new_game(char *params) {
-	old_state = check_three_boards(&temp1/*,&temp2,&temp3*/);
-	print_board(old_state);
-	num_pieces = count_pieces(&old_state);
-	if (num_pieces <= 32) {
+	init_board_state();
+	if (count_pieces(&old_state) <= 32) {
 		return do_calibrate(params);
 	} else {
 		LOG_ERR("need 32 pieces on the board");
@@ -27,11 +38,14 @@ int do_new_game(char *params) {
 }
 
 int do_end_turn(char *params) {
-	new_state = check_three_boards(&temp1/*,&temp2,&temp3*/);
+	new_state = check_three_boards(&temp1);
 	print_board(new_state);
 	int8_t ret = -1;
-	if (save_move)
+	if (save_move) {
 		ret = calculate_move(&old_state, &new_state, &latest_move);
+	} else {
+		ret = 0;
+	}
 	if (ret == 0) {
 		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", latest_move.buf);
 		save_move = 1;
@@ -48,23 +62,11 @@ int do_capture_castle(char *params) {
 	num_params = parse_params(params, p_arr, 1);
 	if (num_params > 0) {
 		if (strchr(p_arr[0], 'c')) {
-			new_state = check_three_boards(&temp1/*,&temp2,&temp3*/);
-			print_board(new_state);
-			int16_t new_count = count_pieces(&old_state);
-			if (new_count < num_pieces) {
-				num_pieces = new_count;
-				old_state = new_state;
-				SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
-			} else {
-				LOG_ERR("need to remove piece");
-				SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
-			}
+			update_board_state(0);
+			SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 		} else if (strchr(p_arr[0], 'k')) {
-			new_state = check_three_boards(&temp1/*,&temp2,&temp3*/);
-			print_board(new_state);
-			int8_t ret = calculate_move(&old_state,&new_state,&latest_move);
+			update_board_state(1);
 			save_move = 0;
-			old_state = new_state;
 		}
 	}
 	return 0;
@@ -149,7 +151,7 @@ int do_move_piece(char *params) {
 			break;
 	}
 	
-	get_board_state();
+	update_board_state(0);
 	if (ret == 0) {
 		SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 	} else {
