@@ -105,13 +105,13 @@ int do_move_piece(char *params) {
 				LOG_TRACE("castling move, moving %s...", p_arr[0]);
 				uci_move(p_arr[0]); // move king
 				LOG_TRACE("moving %s...", p_arr[2]);
-				uci_move(p_arr[2]); // move rook
+				ret = uci_move(p_arr[2]); // move rook
 			} else if (strchr(p_arr[1], 'e')) { // en passant
 				LOG_TRACE("en passant move, moving %s to graveyard", p_arr[2]);
 				// move passed piece to graveyard
 				SET_COORDS(x, y, p_arr[2]);
 				MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, color);
-				uci_move(p_arr[0]);
+				ret = uci_move(p_arr[0]);
 			} else if (strchr(p_arr[1], 'p')) { // promotion
 				LOG_TRACE("promoting %.2s to a %s at %s", p_arr[0], p_arr[2], p_arr[0]+2);
 				// move pawn at 'from' to graveyard
@@ -125,7 +125,7 @@ int do_move_piece(char *params) {
 				}
 				// move promoted piece to 'to'
 				PROMOTE_TO_SQUARE(x, y, graveyard, color);
-				SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
+				ret = 0;
 			}
 			break;
 		case 2: // capture
@@ -142,13 +142,19 @@ int do_move_piece(char *params) {
 				debug_move(dbg_x, dbg_y);
 			} else {
 				LOG_TRACE("moving piece at %s", p_arr[0]);
-				ret = (uci_move(p_arr[0]) >= 0) ? 0 : -1;
+				ret = uci_move(p_arr[0]);
 			}
 			break;
 		default:
 			break;
 	}
 	
+	get_board_state();
+	if (ret == 0) {
+		SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
+	} else {
+		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
+	}
 	return ret;
 }
 
@@ -185,7 +191,7 @@ int do_set_wifi(char *params) {
 }
 
 int do_reset(char *params) {
-//	NVIC_SystemReset();
+	NVIC_SystemReset();
 	return 0;
 }
 #endif

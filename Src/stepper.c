@@ -3,12 +3,12 @@
 #include "gpio.h"
 
 // globals
-static int x_step; // current steps to take
-static int y_step;
-static int x_pos;  // global position on axis (in steps)
-static int y_pos;
-static int8_t x_dir;  // unit to add/subtract (for position, either +1 or -1)
-static int8_t y_dir;
+static int x_step = OFF; // current steps to take
+static int y_step = OFF;
+static int x_pos = 0;  // global position on axis (in steps)
+static int y_pos = 0;
+static int8_t x_dir = 1;  // unit to add/subtract (for position, either +1 or -1)
+static int8_t y_dir = 1;
 
 /*
  *	initialize step counters and position
@@ -16,8 +16,8 @@ static int8_t y_dir;
  */
 void step_reset(void) {
 	stop_stepping();
-	x_step = 0;
-	y_step = 0;
+	x_step = OFF;
+	y_step = OFF;
 	x_pos = 0;
 	y_pos = 0;
 	x_dir = 1;

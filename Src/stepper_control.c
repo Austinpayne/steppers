@@ -4,6 +4,7 @@
 #include "gpio.h"
 #include "serial.h"
 #include "string.h"
+#include "hall_array_library.h"
 
 unsigned char cal = 0; // calibration flag
 
@@ -35,7 +36,7 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 	uint8_t *offset = color == 'w' ? &w_offset : &b_offset;
 	
 	if (*offset < (N*2)-1) {
-		grid_t *graveyard_ptr = color == 'w' ? &(grid[0][1])+(N*(w_offset/2)) : &(grid[0][N-2])+(N*(b_offset/2));
+		grid_t *graveyard_ptr = color == 'w' ? &(grid[0][0])+((N)*(w_offset/2)) : &(grid[0][N-1])+((N)*(b_offset/2));
 		if (*offset % 2 == 0) { // in square
 			slot->x = graveyard_ptr->x;
 			slot->y = graveyard_ptr->y;
@@ -51,25 +52,16 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 }
 
 int magnet_on(void) {
-	LOG_TRACE("Turning magnet on");
 	MAGNET_ON;
 	HAL_Delay(500);
 	return 0;
 } 
 
 int magnet_off(void) {
-	LOG_TRACE("Turning magnet off");
 	int x = get_pos(X);
 	int y = get_pos(Y);
-	LOG_TRACE("magnet position: (%d,%d)", x, y);
 	HAL_Delay(500);
 	MAGNET_OFF; 
-	return 0;
-}
-
-int move_done(void) {
-	magnet_off();
-	SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 	return 0;
 }
 
@@ -119,8 +111,13 @@ void get_promoted_piece(grid_t *slot, char color) {
  *
 *	Note: mainly for moving to graveyard
  */
-void move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y) {
-	 LOG_TRACE("move_piece_to_mm: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
+int move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y) {
+	 //LOG_TRACE("move_piece_to_mm: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
+	 if (x >= N || y >= N) {
+		 LOG_ERR("move_piece_to_mm: x=%d or y=%d out of bounds!", x, y);
+		 return -1;
+	 }
+	 
 	 // goto src
 	 int16_t x_align = DIFF_MM(grid[y][x].x, get_pos(X));
 	 int16_t y_align = DIFF_MM(grid[y][x].y, get_pos(Y));
@@ -128,20 +125,26 @@ void move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y) {
 	 int16_t dx = DIFF_MM(dest_x, grid[y][x].x);
 	 int16_t dy = DIFF_MM(dest_y, grid[y][x].y);
 	
-	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
+	 //LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
 	 int16_t x_off, y_off;
      SET_OFFSET(x_off, y_off);
 	 
-	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
+	 //LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
 	 TAXI_CAB_MOVE(x_align,y_align,x_off,y_off,dx,dy);
+	 return 0;
 }
 
 /*
  *  move chess piece at (x,y) to (dest_x,dest_y)
  *	x, y, dest_x, dest_y are in grid indexes (0 to N-1)
  */
-void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
-	 LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
+int move_piece(int8_t x, int8_t y, int8_t dest_x, int8_t dest_y) {
+	 //LOG_TRACE("move_piece: x=%d, y=%d, dest_x=%d, dest_y=%d", x, y, dest_x, dest_y);
+	 if (x >= N || y >= N || dest_x >= N || dest_y >= N) {
+		 LOG_ERR("move_piece_to_mm: x=%d, y=%d, dest_x=%d, or dest_y=%d out of bounds!", x, y, dest_x, dest_y);
+		 return -1;
+	 }
+	 
 	 // goto src
 	 int16_t x_align = DIFF_MM(grid[y][x].x, get_pos(X));
 	 int16_t y_align = DIFF_MM(grid[y][x].y, get_pos(Y));
@@ -149,12 +152,13 @@ void move_piece(int16_t x, int16_t y, int16_t dest_x, int16_t dest_y) {
 	 int16_t dx = DIFF_MM(grid[dest_y][dest_x].x, grid[y][x].x);
 	 int16_t dy = DIFF_MM(grid[dest_y][dest_x].y, grid[y][x].y);
 	
-	 LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
+	 //LOG_TRACE("x_align=%d, y_align=%d, dx=%d, dy=%d", x_align, y_align, dx, dy);
 	 int16_t x_off, y_off;
      SET_OFFSET(x_off, y_off);
 	 
-	 LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
+	 //LOG_TRACE("x_off=%d, y_off=%d", x_off, y_off);
 	 TAXI_CAB_MOVE(x_align,y_align,x_off,y_off,dx,dy);
+	 return 0;
 }
 
 /*
@@ -181,17 +185,14 @@ int uci_move(const char *move) {
 		SET_COORDS(src_x, src_y, move);
 		SET_COORDS(dst_x, dst_y, move+2);
 	} else {
-		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 		return -1;
 	}
 
 	if (COORD_INVALID(src_x) || COORD_INVALID(src_y) || COORD_INVALID(dst_x) || COORD_INVALID(dst_y)) {
-		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 		return -1;
 	}
 	
-	move_piece(src_x, src_y, dst_x, dst_y);
-	return 0;
+	return move_piece(src_x, src_y, dst_x, dst_y);
 }
 
 unsigned char calibrating(void) {
@@ -205,6 +206,7 @@ int calibrate(void) {
 	unsigned char x_done = 0;
 	unsigned char y_done = 0;
 	int ret = 0;
+	step_reset();
 	step_mm(X, -2000);
 	step_mm(Y, -2000);
 	
