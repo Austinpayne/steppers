@@ -9,7 +9,7 @@
 
 #define NUM_SQUARES 64
 #define ROW_COL 8
-#define THRESHOLD 175
+#define THRESHOLD 200
 #define pieces_on_board 32
 
 #define turn_on_a()  (GPIOB->BSRR |= GPIO_BSRR_BS_10)
@@ -46,10 +46,11 @@ void scan_bools(board_buffer*);
 void zero_out_board(board_buffer*);
 //float adcval_tovolt(uint16_t );
 void scan_array(volatile board_buffer*);
-board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2, 
+board_buffer check_three_boards(board_buffer* board_1/*, board_buffer* board_2, 
                                 board_buffer* board_3/*, board_buffer*, board_buffer**/);
 void print_board(board_buffer);
 int16_t count_pieces(board_buffer*);
+void rebias_chessboard();
 //void print16_t _bools(void);
 //void print16_t _state(void);
 //void print16_t _biases(void);

@@ -127,6 +127,9 @@ void scan_array(volatile board_buffer* buf){
 	}
 	return;
 }
+void rebias_chessboard(){
+	
+}
 int16_t take_reading(void){
 	int16_t result = 0;
 	int16_t reading = 0;
@@ -173,8 +176,9 @@ void init_board(void) {
 	turn_off_all();
 
 	ADC1->CR |= ADC_CR_ADSTART;//turn on adc
-	scan_array(current_biases);
+	//scan_array(current_biases);
 	scan_array(cur_state);
+	scan_array(current_biases);
 	scan_array(current_biases);
 	scan_array(current_biases);
 	
@@ -182,12 +186,13 @@ void init_board(void) {
 
 void get_board_state(void) {
 	board_buffer board_state1;
-	board_buffer board_1, board_2, board_3;
+	board_buffer board_1;//, board_2, board_3;
 	zero_out_board(&board_1);
-	zero_out_board(&board_2);
-	zero_out_board(&board_3);
-	board_state1 = check_three_boards(&board_1, &board_2, &board_3);
+	//zero_out_board(&board_2);
+	//zero_out_board(&board_3);
+	board_state1 = check_three_boards(&board_1/*, &board_2, &board_3*/);
 	print_board(board_state1);
+	return ;
 }
 
 void pseudo_main(void){
@@ -197,26 +202,26 @@ void pseudo_main(void){
 		while((ADC1->ISR & ADC_ISR_EOC) == 0){
 			//implement time-out
 		}
-		board_buffer board_1, board_2, board_3;
+		board_buffer board_1;//, board_2, board_3;
 		zero_out_board(&board_1);
-		zero_out_board(&board_2);
-		zero_out_board(&board_3);
+		//zero_out_board(&board_2);
+		//zero_out_board(&board_3);
 		//zero_out_board(&temp);
 		//current_biases = scan_array(temp);
 		//scan_array(&cur_state);
 		//magnet_pos = scan_bools();
-		board_state1 = check_three_boards(&board_1, &board_2, &board_3);
+		//board_state1 = check_three_boards(&board_1, &board_2, &board_3);
 		print_board(board_state1);
 		HAL_Delay(1000);
 		HAL_Delay(1000);
 		
-		board_buffer board_state3 = check_three_boards(&board_1, &board_2, &board_3);
+		//board_buffer board_state3 = check_three_boards(&board_1, &board_2, &board_3);
 		HAL_Delay(1000);	
 		HAL_Delay(1000);
 		HAL_Delay(1000);
-		zero_out_board(&board_1); zero_out_board(&board_2); zero_out_board(&board_3);
+		//zero_out_board(&board_1); zero_out_board(&board_2); zero_out_board(&board_3);
 		//scan_array(&cur_state);
-		board_state2 = check_three_boards(&board_1, &board_2, &board_3);
+		//board_state2 = check_three_boards(&board_1, &board_2, &board_3);
 		print_board(board_state2);
 		
 		move_string move;
@@ -291,18 +296,30 @@ int8_t calculate_move(board_buffer* prev_state, board_buffer* new_state, move_st
 	else
 		return -1;
 }
-board_buffer check_three_boards(board_buffer* board_1, board_buffer* board_2, board_buffer* board_3) {
+board_buffer check_three_boards(board_buffer* board_1/*, board_buffer* board_2, board_buffer* board_3*/) {
 	board_buffer temp;
 	scan_array(cur_state);
 	scan_bools(board_1);
-	scan_array(cur_state);
+	/*scan_array(cur_state);
 	scan_bools(board_2);
 	scan_array(cur_state);
 	scan_bools(board_3);
-	
+	for(unsigned k = 0; k < 3; k++){
+		scan_array(cur_state);
+		scan_bools(board_2);
+		for(unsigned i = 0; i < 8; i++){
+			for(unsigned j = 0; j < 8; j++){
+				if(board_1->buffer[i][j] && board_2->buffer[i][j] && board_3->buffer[i][j]){
+					temp.buffer[i][j] = 1;
+				}else{
+					temp.buffer[i][j] = 0;
+				}
+			}
+		}
+	}*/
 	for(unsigned i = 0; i < 8; i++){
 		for(unsigned j = 0; j < 8; j++){
-			if(board_1->buffer[i][j] && board_2->buffer[i][j] && board_3->buffer[i][j]){
+			if(board_1->buffer[i][j]/* && board_2->buffer[i][j] && board_3->buffer[i][j]*/){
 				temp.buffer[i][j] = 1;
 			}else{
 				temp.buffer[i][j] = 0;
