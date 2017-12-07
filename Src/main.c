@@ -43,8 +43,10 @@
 #include "hall_array_library.h"
 
 #define STEP_PRIORITY 1
+#define RX_TIMEOUT 1000 // ms
 
 char rx_char;
+uint32_t rx_timeout;
 
 /* USER CODE END Includes */
 
@@ -78,6 +80,7 @@ PUTCHAR_PROTOTYPE {
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+	rx_timeout = HAL_GetTick() + RX_TIMEOUT;
 	if (DEBUG) printf(&rx_char);
 	if (rx_serial_command(rx_char, NULL) == FAIL) {
 		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
