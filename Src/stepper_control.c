@@ -104,6 +104,10 @@ void get_promoted_piece(grid_t *slot, char color) {
 	}
 }
 
+void offset_magnet_head(void) {
+	step_mm_blocking(32, 0);
+}
+
 /*
  *  move chess piece at (x,y) to (dest_x,dest_y)
  *	x, y, are in grid indexes (0 to N-1) and 

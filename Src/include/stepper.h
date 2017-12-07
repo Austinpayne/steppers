@@ -4,7 +4,7 @@
 // stepper PWM
 // frequency = (8MHz/PSC/ARR) *approximatly*
 #define PRESCALE 50
-#define AUTO_RELOAD 20
+#define AUTO_RELOAD 17
 #define DUTY_CYCLE 1
 
 // step & gear constants

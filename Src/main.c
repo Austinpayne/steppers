@@ -239,9 +239,12 @@ int main(void)
   output_init();
   cal_switches_init();
   sys_init();
+  
+  // move magnet so biases are correct
+  calibrate();
+  
   init_board();
   
-  //
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   //LOG_INFO("system ready, place pieces");
   /* USER CODE END 2 */

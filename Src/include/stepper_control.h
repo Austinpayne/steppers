@@ -70,6 +70,7 @@ void step_control_init(void);
 void step_squares(int axis, int n);
 void debug_squares(void);
 void debug_move(int16_t x, int16_t y);
+void offset_magnet_head(void);
 int move_piece_to_mm(uint8_t x, uint8_t y, int16_t dest_x, int16_t dest_y);
 int move_piece(int8_t x, int8_t y, int8_t dest_x, int8_t dest_y);
 int  uci_move(const char *move);

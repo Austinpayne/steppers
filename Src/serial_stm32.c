@@ -63,6 +63,7 @@ int do_capture_castle(char *params) {
 	if (num_params > 0) {
 		if (strchr(p_arr[0], 'c')) {
 			LOG_TRACE("capturing");
+			offset_magnet_head();
 			update_board_state(0);
 		} else if (strchr(p_arr[0], 'k')) {
 			LOG_TRACE("castling");

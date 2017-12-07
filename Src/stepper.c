@@ -85,9 +85,8 @@ void stepn(int8_t axis, int n, int8_t dir) {
 void step_mm_blocking(int x_mm, int y_mm) {
 	step_mm(X, x_mm);
 	step_mm(Y, y_mm);
-	while (stepping()) {
-		HAL_Delay(10);
-	}
+	while (stepping()) {}
+	HAL_Delay(100);
 }
 
 /*
