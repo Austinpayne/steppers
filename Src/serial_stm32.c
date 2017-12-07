@@ -13,13 +13,13 @@ uint8_t save_move = 1;
 move_string latest_move;
 
 void init_board_state(void) {
-	old_state = check_three_boards(&temp1);
-	get_board_state();
+	check_three_boards(&old_state, &temp1);
+	print_board(&old_state);
 }
 
 void update_board_state(uint8_t set_save_move) {
-	new_state = check_three_boards(&temp1);
-	print_board(new_state);
+	check_three_boards(&new_state, &temp1);
+	print_board(&new_state);
 	if (set_save_move) {
 		calculate_move(&old_state,&new_state,&latest_move);
 	}
@@ -38,8 +38,8 @@ int do_new_game(char *params) {
 }
 
 int do_end_turn(char *params) {
-	new_state = check_three_boards(&temp1);
-	print_board(new_state);
+	check_three_boards(&new_state, &temp1);
+	print_board(&new_state);
 	int8_t ret = -1;
 	if (save_move) {
 		ret = calculate_move(&old_state, &new_state, &latest_move);
@@ -62,9 +62,10 @@ int do_capture_castle(char *params) {
 	num_params = parse_params(params, p_arr, 1);
 	if (num_params > 0) {
 		if (strchr(p_arr[0], 'c')) {
+			LOG_TRACE("capturing");
 			update_board_state(0);
-			SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 		} else if (strchr(p_arr[0], 'k')) {
+			LOG_TRACE("castling");
 			update_board_state(1);
 			save_move = 0;
 		}
@@ -170,36 +171,48 @@ int do_calibrate(char *params) {
     return 0;
 }
 
-
-//command 6
-int do_end_game(char *params) {
-	get_board_state();
-	//HAL_Delay(4000);
-	//board_buffer buf2 = get_board_state();
-	//get_board_state();
-	//move_string str;
-	//calculate_move(&buf1,&buf2,&str);
-	
-    return 0;
+int do_end_game(char *params) {	
+    return -1;
 }
 
 int do_send_log(char *params) {
 	return -1;
 }
 
-int do_scan_wifi(char *params) {
-	do_calibrate(params);
-    debug_squares();
-	return 0;
-}
-
 int do_set_wifi(char *params) {
-	magnet_on();
-    return 0;
+    return -1;
 }
 
 int do_reset(char *params) {
 	NVIC_SystemReset();
+	return 0;
+}
+
+int do_user_turn(char *params) {
+	return -1;
+}
+
+int do_debug_cmd(char *params) {
+	char *p_arr[1] = {NULL};
+	int num_params;
+	num_params = parse_params(params, p_arr, 1);
+	if (num_params > 0) {
+		switch(*(p_arr[0])) {
+			case 'p':
+				get_board_state();
+				break;
+			case 'd':
+				do_calibrate(params);
+				debug_squares();
+				break;
+			case 'o':
+				magnet_on();
+				break;
+			case 'f':
+				magnet_off();
+				break;			
+		}
+	}
 	return 0;
 }
 #endif

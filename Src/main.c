@@ -82,6 +82,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	if (rx_serial_command(rx_char, NULL) == FAIL) {
 		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 	}
+	rx_char = 0;
     HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
 /* USER CODE END PFP */
@@ -240,10 +241,9 @@ int main(void)
   sys_init();
   init_board();
   
-  HAL_Delay(500);
-  
+  //
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
-  LOG_INFO("system ready, place pieces");
+  //LOG_INFO("system ready, place pieces");
   /* USER CODE END 2 */
 
   /* Infinite loop */
