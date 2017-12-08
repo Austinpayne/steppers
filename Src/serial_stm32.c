@@ -106,9 +106,8 @@ int do_move_piece(char *params) {
 		case 3:
 			color = get_color(p_arr[1]);
 			if (strchr(p_arr[1], 'k')) { // castling
-				LOG_TRACE("castling move, moving %s...", p_arr[0]);
+				LOG_TRACE("castling move, moving %s and %s", p_arr[0], p_arr[2]);
 				uci_move(p_arr[0]); // move king
-				LOG_TRACE("moving %s...", p_arr[2]);
 				ret = uci_move(p_arr[2]); // move rook
 			} else if (strchr(p_arr[1], 'e')) { // en passant
 				LOG_TRACE("en passant move, moving %s to graveyard", p_arr[2]);
@@ -124,7 +123,6 @@ int do_move_piece(char *params) {
 				SET_COORDS(x, y, p_arr[0]+2);
 				if (strchr(p_arr[1], 'c')) {
 					// move captured piece at 'to' to graveyard
-					LOG_TRACE("capturing %s as well", p_arr[0]+2);
 					MOVE_PIECE_TO_GRAVEYARD(x, y, graveyard, color);
 				}
 				// move promoted piece to 'to'
@@ -180,8 +178,10 @@ int do_send_log(char *params) {
 	return -1;
 }
 
-int do_set_wifi(char *params) {
-    return -1;
+int do_retry(char *params) {
+	update_board_state(0);
+	SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
+    return 0;
 }
 
 int do_reset(char *params) {

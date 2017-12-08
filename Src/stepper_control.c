@@ -45,7 +45,7 @@ int get_current_graveyard_slot(grid_t *slot, char color) {
 			slot->y = graveyard_ptr->y + (((graveyard_ptr+N)->y - graveyard_ptr->y)/2);
 		}
 		*offset += 1;
-		LOG_TRACE("graveyard slot: (%d,%d), w_offset: %d, b_offset: %d", slot->x, slot->y, w_offset, b_offset);
+		//LOG_TRACE("graveyard slot: (%d,%d), w_offset: %d, b_offset: %d", slot->x, slot->y, w_offset, b_offset);
 		return 0;
 	}
 	return -1; // no more slots
@@ -106,6 +106,7 @@ void get_promoted_piece(grid_t *slot, char color) {
 
 void offset_magnet_head(void) {
 	step_mm_blocking(32, 0);
+	step_mm_blocking(0, 32);
 }
 
 /*

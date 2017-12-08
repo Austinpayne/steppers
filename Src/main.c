@@ -44,14 +44,14 @@
 
 #define STEP_PRIORITY 1
 #define RX_TIMEOUT 1000 // ms
+#define BUFF_SIZE 64
 
-char rx_char;
-uint32_t rx_timeout;
+char rx_buffer[BUFF_SIZE];
+int i = 0;
 
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
@@ -61,8 +61,6 @@ UART_HandleTypeDef huart1;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void Error_Handler(void);
-static void MX_GPIO_Init(void);
-static void MX_USART1_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -74,19 +72,46 @@ static void MX_USART1_UART_Init(void);
 
 // Retargets the C library printf function to the USART
 PUTCHAR_PROTOTYPE {
-    HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 100);
-    return ch;
+	while(!(USART1->ISR & USART_ISR_TXE)) {
+		// wait
+	}
+	USART1->TDR = ch;
+	return ch;
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	rx_timeout = HAL_GetTick() + RX_TIMEOUT;
-	if (DEBUG) printf(&rx_char);
-	if (rx_serial_command(rx_char, NULL) == FAIL) {
+char rx_char() {
+	if (USART1->ISR & USART_ISR_RXNE) {
+		return USART1->RDR;
+	}
+	return 0;
+}
+
+void wait_for_command(void) {
+	uint32_t timeout = HAL_GetTick() + RX_TIMEOUT;
+	int status = -1;
+	char c = rx_char();
+	if (!c) { // don't try unless a char has been received
+		return;
+	}
+	while (HAL_GetTick() < timeout) {
+		if (c) {
+			if (DEBUG) printf(&c);
+			status = rx_serial_command_r(c, rx_buffer, &i, BUFF_SIZE, NULL);
+			if (status == FAIL) {
+				SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
+				break;
+			} else if (status != CONTINUE) {
+				break;
+			}
+		}
+		c = rx_char();
+	}
+	CLEAR_BUFF(rx_buffer, BUFF_SIZE, i);
+	if (status == CONTINUE) {
+		rx_char(); // clear any bits in uart registers
+		LOG_WARN("Timeout. Clearing buffer.");
 		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 	}
-	rx_char = 0;
-    HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);   //activate UART receive interrupt every time
 }
 /* USER CODE END PFP */
 
@@ -212,6 +237,17 @@ void sys_init(){
 	while((ADC1->ISR & ADC_ISR_ADRDY) == 0){
 		/*implement a time out here*/
 	}
+	
+	// setup uart
+	GPIOA->MODER  |= (2 << GPIO_MODER_MODER9_Pos);  // alternate
+	GPIOA->MODER  |= (2 << GPIO_MODER_MODER10_Pos); // alternate
+	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH1_Pos); // PA9,  USART1_TX
+	GPIOA->AFR[1] |= (1 << GPIO_AFRH_AFRH2_Pos); // PA10, USART1_RX
+	USART1->BRR    = 833; // set baud to 9600 = 8MHz/69
+	USART1->CR1   |= USART_CR1_TE; // enable TX
+	USART1->CR1   |= USART_CR1_RE; // enable RX	
+
+	USART1->CR1   |= USART_CR1_UE; // enable USART1
 }
 
 /* USER CODE END 0 */
@@ -233,8 +269,6 @@ int main(void)
   SystemClock_Config();
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART1_UART_Init();
 
   /* USER CODE BEGIN 2 */
   button_init();
@@ -248,7 +282,6 @@ int main(void)
   
   init_board();
   
-  HAL_UART_Receive_IT(&huart1, (uint8_t *)&rx_char, 1);
   //LOG_INFO("system ready, place pieces");
   /* USER CODE END 2 */
 
@@ -259,7 +292,9 @@ int main(void)
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-	__WFI();
+	//__WFI();
+	  wait_for_command();
+	  
   }
   /* USER CODE END 3 */
 
@@ -272,7 +307,6 @@ void SystemClock_Config(void)
 
   RCC_OscInitTypeDef RCC_OscInitStruct;
   RCC_ClkInitTypeDef RCC_ClkInitStruct;
-  RCC_PeriphCLKInitTypeDef PeriphClkInit;
 
     /**Initializes the CPU, AHB and APB busses clocks 
     */
@@ -298,13 +332,6 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
-  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
-  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
     /**Configure the Systick interrupt time 
     */
   HAL_SYSTICK_Config(HAL_RCC_GetHCLKFreq()/1000);
@@ -315,37 +342,6 @@ void SystemClock_Config(void)
 
   /* SysTick_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
-}
-
-/* USART1 init function */
-static void MX_USART1_UART_Init(void)
-{
-
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-}
-
-/** Pinout Configuration
-*/
-static void MX_GPIO_Init(void)
-{
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-
 }
 
 /* USER CODE BEGIN 4 */
