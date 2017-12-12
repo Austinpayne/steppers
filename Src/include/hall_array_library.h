@@ -9,7 +9,7 @@
 
 #define NUM_SQUARES 64
 #define ROW_COL 8
-#define THRESHOLD 675
+#define THRESHOLD 420
 #define pieces_on_board 32
 
 #define turn_on_a()  (GPIOB->BSRR |= GPIO_BSRR_BS_10)

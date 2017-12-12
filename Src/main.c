@@ -93,6 +93,7 @@ void wait_for_command(void) {
 	if (!c) { // don't try unless a char has been received
 		return;
 	}
+	CLEAR_BUFF(rx_buffer, BUFF_SIZE, i);
 	while (HAL_GetTick() < timeout) {
 		if (c) {
 			if (DEBUG) printf(&c);
@@ -108,7 +109,6 @@ void wait_for_command(void) {
 	}
 	CLEAR_BUFF(rx_buffer, BUFF_SIZE, i);
 	if (status == CONTINUE) {
-		rx_char(); // clear any bits in uart registers
 		LOG_WARN("Timeout. Clearing buffer.");
 		SEND_CMD_P(CMD_STATUS, "%d", STATUS_FAIL);
 	}
@@ -281,6 +281,8 @@ int main(void)
   calibrate();
   
   init_board();
+  
+  rx_char();
   
   //LOG_INFO("system ready, place pieces");
   /* USER CODE END 2 */

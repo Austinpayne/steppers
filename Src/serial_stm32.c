@@ -28,7 +28,7 @@ void update_board_state(uint8_t set_save_move) {
 
 int do_new_game(char *params) {
 	init_board_state();
-	if (count_pieces(&old_state) <= 32) {
+	if (count_pieces(&old_state) <= 33) {
 		return do_calibrate(params);
 	} else {
 		LOG_ERR("need 32 pieces on the board");
@@ -51,7 +51,7 @@ int do_end_turn(char *params) {
 		save_move = 1;
 		old_state = new_state;
 	} else {
-		SEND_CMD_P(CMD_MOVE_PIECE, "%.4s", "fail");
+		SEND_CMD_P(CMD_MOVE_PIECE, "fail: %.4s", latest_move.buf);
 	}
 	return 0;
 }
@@ -71,6 +71,7 @@ int do_capture_castle(char *params) {
 			save_move = 0;
 		}
 	}
+	SEND_CMD_P(CMD_STATUS, "%d", STATUS_OKAY);
 	return 0;
 }
 
